@@ -1,0 +1,2211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Vagas Mirantes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-body: #F6F5F7;
+            --bg-sidebar: #F6F5F7;
+            --primary-blue: #0088cc;
+            --text-main: #07040D;
+            --text-muted: #57535D;
+            --border-color: #D7D6D9;
+            --card-bg: #FFFFFF;
+        }
+
+        * { box-sizing: border-box; font-family: 'Nunito Sans', sans-serif; }
+        body { margin: 0; padding: 0; background-color: var(--bg-body); display: flex; height: 100vh; overflow: hidden; color: var(--text-main); position: relative; }
+        
+        #tela_carregamento { 
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+            background: #FFFFFF; z-index: 9999; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; padding-bottom: 80px;
+        }
+        
+        .loading-logo-wrapper { position: relative; display: flex; justify-content: center; align-items: center; margin-bottom: 20px; }
+        .loading-aura {
+            position: absolute; width: 200px; height: 200px; 
+            background: radial-gradient(circle, rgba(0, 136, 204, 0.25) 0%, rgba(0, 136, 204, 0) 70%);
+            border-radius: 50%; animation: pulseAura 2s infinite ease-in-out;
+        }
+
+        @keyframes pulseAura { 0% { transform: scale(0.85); opacity: 0.5; } 50% { transform: scale(1.25); opacity: 0.9; } 100% { transform: scale(0.85); opacity: 0.5; } }
+        .loading-logo { max-width: 200px; height: auto; position: relative; z-index: 2; animation: floatLogo 2s infinite ease-in-out; }
+        @keyframes floatLogo { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
+        .loading-text { font-size: 16px; font-weight: 700; color: #333; text-align: center; max-width: 90%; animation: blinkText 2s infinite ease-in-out; }
+        @keyframes blinkText { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+        .emoji-celebration-container {
+            position: fixed; bottom: 0; left: 0; width: 100vw; height: 100vh; 
+            pointer-events: none; z-index: 10000; overflow: hidden;
+        }
+
+        .floating-emoji {
+            position: absolute; bottom: -50px; font-size: 32px; 
+            user-select: none; animation: floatUp 2.5s ease-out forwards;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(0.6) rotate(0deg); opacity: 0.2; }
+            20% { opacity: 1; transform: translateY(-20vh) scale(1.2) rotate(15deg); }
+            80% { opacity: 0.9; }
+            100% { transform: translateY(-100vh) scale(0.8) rotate(-25deg); opacity: 0; }
+        }
+
+        .sidebar { width: 260px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; transition: width 0.3s ease, padding 0.3s ease; position: relative; }
+        .sidebar.collapsed { width: 45px; overflow: hidden; }
+        
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border-color); background: white; }
+        .sidebar-logo-img { max-height: 60px; transition: 0.2s; }
+        .sidebar.collapsed .sidebar-logo-img { display: none; }
+        .btn-toggle-sidebar { background: #EAEAEA; border: 1px solid var(--border-color); border-radius: 4px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; color: var(--text-muted); transition: 0.2s; }
+        .btn-toggle-sidebar:hover { background: var(--primary-blue); color: white; border-color: var(--primary-blue); }
+
+        .filters-section { padding: 15px 20px; overflow-y: auto; flex-grow: 1; }
+        .sidebar.collapsed .filters-section { display: none; }
+        
+        .filters-title { font-size: 13px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; margin-bottom: 15px; }
+        .filters-title span.icon { background: #000; color: #fff; border-radius: 3px; padding: 0 4px; font-size: 10px; }
+        
+        details.filter-group { margin-bottom: 15px; }
+        details.filter-group summary { font-size: 14px; font-weight: 600; color: var(--primary-blue); cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+        details.filter-group summary::-webkit-details-marker { display: none; }
+        details.filter-group summary::before { content: '❯'; font-size: 10px; color: var(--text-main); transition: 0.2s; }
+        details.filter-group[open] summary::before { transform: rotate(90deg); }
+        
+        .sidebar-checklist { padding: 10px 0 0 5px; display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto;}
+        .sidebar-checklist label { font-size: 12px; color: var(--text-muted); display: flex; align-items: flex-start; gap: 6px; cursor: pointer; line-height: 1.2;}
+        .sidebar-checklist input[type="checkbox"] { margin: 0; cursor: pointer; }
+        .sidebar-search { width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px; margin-top: 10px; outline: none;}
+
+        .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; background: #FFFFFF;}
+        
+        .header { background: #FFFFFF; padding: 10px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 15px; box-shadow: 0px 1px 2px rgba(0,0,0,0.05); z-index: 10; flex-wrap: wrap; }
+        
+        .top-nav-tabs { display: flex; background: #EAEAEA; border-radius: 6px; padding: 3px; gap: 4px; }
+        .top-nav-btn { border: none; background: transparent; padding: 6px 14px; border-radius: 4px; font-size: 13px; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 6px; }
+        .top-nav-btn.active { background: var(--primary-blue); color: #FFFFFF; }
+
+        .header-search-container { flex-grow: 1; max-width: 320px; position: relative; }
+        .header-search-input { width: 100%; padding: 7px 12px; border: 1px solid var(--border-color); border-radius: 20px; font-size: 13px; outline: none; background: #FAFAFA; }
+        .header-search-input:focus { border-color: var(--primary-blue); background: #FFF; }
+
+        .header-actions { display: flex; gap: 10px; align-items: center; }
+        .btn-pdf { background: #E74C3C; color: white; border: none; padding: 8px 14px; border-radius: 4px; font-weight: 700; cursor: pointer; font-size: 13px; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .btn-pdf:hover { background: #C0392B; }
+        .btn-new { background: #32be3f; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 700; cursor: pointer; font-size: 14px; transition: 0.2s; white-space: nowrap; }
+        .btn-new:hover:not(:disabled) { background: #29a034; }
+
+        .kanban-wrapper { flex-grow: 1; padding: 20px; overflow-x: auto; background-color: #F9F9F9; }
+        .kanban-board { display: flex; gap: 16px; height: 100%; min-width: max-content; }
+        
+        .kanban-column { background: transparent; width: 300px; display: flex; flex-direction: column; transition: 0.3s ease; }
+        .kanban-column-header { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--border-color); display: flex; justify-content: space-between; align-items: flex-start; }
+        .kanban-column-title-container { display: flex; flex-direction: column; gap: 2px;}
+        .col-title { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+        .col-count { font-size: 10px; color: #888; text-transform: uppercase; font-weight: normal; }
+        .cards-container { flex-grow: 1; overflow-y: auto; padding-bottom: 20px; min-height: 150px; }
+        
+        .kanban-column.collapsed { width: 45px; min-width: 45px; background: #EAEAEA; border-radius: 6px; align-items: center; padding-top: 10px; cursor: pointer;}
+        .kanban-column.collapsed .cards-container { display: none !important; }
+        .kanban-column.collapsed .kanban-column-header { border-bottom: none; flex-direction: column; margin-bottom: 0; padding-bottom: 0; align-items: center;}
+        .kanban-column.collapsed .col-title { writing-mode: vertical-rl; transform: rotate(180deg); margin-top: 15px; font-size: 12px; letter-spacing: 1px; color: #777;}
+        .kanban-column.collapsed .col-count { display: none; }
+        .kanban-column.collapsed .btn-expand { transform: rotate(180deg); margin-bottom: 5px; }
+
+        .card { background: var(--card-bg); border: 1px solid var(--border-color); border-left: 4px solid #57535D; padding: 14px; margin-bottom: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); cursor: pointer; transition: 0.15s; }
+        .card:hover { box-shadow: 0 3px 6px rgba(0,0,0,0.12); border-color: #ccc; }
+        .card.dragging { opacity: 0.4; }
+
+        .card-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; color: var(--text-main); }
+        .card-subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; font-weight: 600;}
+        .card-desc { font-size: 13px; color: var(--text-main); margin-bottom: 8px; }
+        
+        .card-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+        .tag { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; }
+        
+        .tag-programacao { background: #EBF5FB; color: #2980B9; border: 1px solid #AED6F1; }
+        .tag-vaga-livre { background: #FCF3CF; color: #B7950B; border: 1px solid #F9E79F; font-weight: bold; }
+        .tag-inicio { background: #E8F8F5; color: #16A085; border: 1px solid #A3E4D7; font-weight: bold; }
+
+        .tag-docs-entregue { background: #E8F8F5; color: #27AE60; border: 1px solid #A3E4D7; }
+        .tag-docs-andamento { background: #FEF9E7; color: #D68910; border: 1px solid #F9E79F; }
+        .tag-docs-pendente { background: #FDEDEC; color: #C0392B; border: 1px solid #FADBD8; }
+        
+        .tag-exame-ok { background: #EAF2F8; color: #2980B9; border: 1px solid #A9CCE3; }
+        .tag-exame-aguardando { background: #FEF9E7; color: #D68910; border: 1px solid #F9E79F; }
+        .tag-exame-pendencias { background: #FDF2E9; color: #E67E22; border: 1px solid #F5CBA7; }
+        .tag-exame-erro { background: #FDEDEC; color: #C0392B; border: 1px solid #FADBD8; }
+        .tag-exame-nao-aplica { background: #F2F4F4; color: #7F8C8D; border: 1px solid #BDC3C7; }
+        .tag-altura { background: #FEF9E7; color: #E67E22; border: 1px solid #F39C12; }
+
+        #visao_dashboard { display: none; padding: 20px; overflow-y: auto; flex-grow: 1; background: #F9F9F9; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .kpi-card { background: #FFFFFF; border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .kpi-val { font-size: 24px; font-weight: 700; color: var(--primary-blue); }
+        .kpi-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+        .chart-box-wrapper { background: #FFFFFF; border: 1px solid var(--border-color); border-radius: 8px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .chart-box-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; color: var(--text-main); text-transform: uppercase; }
+        .chart-container { position: relative; height: 260px; width: 100%; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000; }
+        .modal { background: #FFFFFF; width: 95%; max-width: 1200px; height: 90vh; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; border-bottom: 1px solid var(--border-color); background: #F6F5F7; }
+        .modal-header h2 { margin: 0; font-size: 18px; font-weight: 700; }
+        .modal-body { padding: 25px; overflow-y: auto; flex-grow: 1; }
+        
+        .form-section { margin-bottom: 30px; }
+        .form-section-header { font-weight: 700; color: #0056b3; font-size: 15px; border-bottom: 1px solid #0056b3; padding-bottom: 5px; margin-bottom: 15px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px 20px; }
+        
+        .form-group { display: flex; flex-direction: column; position: relative;}
+        .form-group label { font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; }
+        .form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; background: #FAFAFA; outline: none; transition: 0.2s; width: 100%;}
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #0056b3; background: #FFF;}
+        .form-group textarea[readonly] { background-color: #E9ECEF; color: #555; cursor: not-allowed; border-color: #CCC; font-family: monospace; font-size: 13px; }
+        .form-group input[readonly] { background-color: #E9ECEF; color: #666; cursor: not-allowed; border-color: #CCC; }
+        .form-group label.required::after { content: " *"; color: red; }
+
+        .multiselect-header, .custom-select-header { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; background: #FAFAFA; cursor: pointer; display: flex; justify-content: space-between; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 37px; }
+        .multiselect-list, .custom-select-list { display: none; position: absolute; top: 100%; left: 0; width: 100%; max-height: 250px; overflow-y: auto; background: white; border: 1px solid var(--border-color); border-top: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 99; border-radius: 0 0 4px 4px;}
+        .dropdown-search-box { padding: 8px; border-bottom: 1px solid #EEE; position: sticky; top: 0; background: white; z-index: 100; }
+        .dropdown-search-input { width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px; outline: none; }
+        
+        .multiselect-list label { padding: 8px 10px; display: flex; align-items: center; font-size: 13px; font-weight: 400; color: var(--text-main); margin: 0; cursor: pointer; border-bottom: 1px solid #EEE;}
+        .multiselect-list label:hover { background-color: #F0F8FF; }
+        .multiselect-list input[type="checkbox"] { width: auto; margin-right: 10px; }
+
+        .custom-select-list .select-item { padding: 8px 10px; font-size: 13px; font-weight: 400; color: var(--text-main); cursor: pointer; border-bottom: 1px solid #EEE; }
+        .custom-select-list .select-item:hover { background-color: #F0F8FF; }
+        .custom-select-list .select-item.selected { background-color: #EBF5FB; font-weight: bold; color: var(--primary-blue); }
+
+        .wa-container { display: flex; gap: 8px; }
+        .btn-whatsapp { background: #25D366; color: white; border: none; border-radius: 4px; padding: 0 12px; font-weight: bold; cursor: pointer; display: none; align-items: center; justify-content: center; transition: 0.2s; white-space: nowrap;}
+        .btn-whatsapp:hover { background: #1EBE55; }
+        
+        .modal-footer { padding: 15px 25px; border-top: 1px solid var(--border-color); background: #F6F5F7; display: flex; justify-content: flex-end; gap: 10px; }
+        .btn-cancel { background: transparent; border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; }
+        .btn-cancel:hover { background: #EEE; }
+        .btn-duplicate { background: #f39c12; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 700; cursor: pointer; font-size: 14px; transition: 0.2s; margin-right: auto; }
+        .btn-duplicate:hover { background: #e67e22; }
+    </style>
+</head>
+<body>
+
+    <div class="emoji-celebration-container" id="emoji_celebration_container"></div>
+
+    <div id="tela_carregamento">
+        <div class="loading-logo-wrapper">
+            <div class="loading-aura"></div>
+            <img src="https://i.postimg.cc/xjkGFktT/2015-02-25-logomarca-construtora-vertical.png" alt="Mirantes Empreendimentos" class="loading-logo">
+        </div>
+        <div class="loading-text">Só um instante... Estamos organizando o quadro de vagas para você!</div>
+    </div>
+
+    <aside class="sidebar" id="sidebar_menu">
+        <div class="sidebar-header">
+            <img src="https://i.postimg.cc/xjkGFktT/2015-02-25-logomarca-construtora-vertical.png" class="sidebar-logo-img" alt="Mirantes">
+            <button type="button" class="btn-toggle-sidebar" onclick="toggleSidebarMenu()" id="btn_toggle_sidebar" title="Minimizar Filtros">❮</button>
+        </div>
+        
+        <div class="filters-section">
+            <div class="filters-title"><span class="icon">▼</span> FILTERS</div>
+            
+            <details class="filter-group">
+                <summary>Ano</summary>
+                <div class="filter-content sidebar-checklist" id="filtro_ano"></div>
+            </details>
+
+            <details class="filter-group">
+                <summary>Obra</summary>
+                <div class="filter-content sidebar-checklist" id="filtro_obra">
+                    <label><input type="checkbox" value="MIRANTES" onchange="aplicarFiltros()"> MIRANTES</label>
+                    <label><input type="checkbox" value="ML2" onchange="aplicarFiltros()"> ML2</label>
+                    <label><input type="checkbox" value="ML3" onchange="aplicarFiltros()"> ML3</label>
+                    <label><input type="checkbox" value="ML4" onchange="aplicarFiltros()"> ML4</label>
+                    <label><input type="checkbox" value="ML5" onchange="aplicarFiltros()"> ML5</label>
+                    <label><input type="checkbox" value="ML6" onchange="aplicarFiltros()"> ML6</label>
+                    <label><input type="checkbox" value="ML7" onchange="aplicarFiltros()"> ML7</label>
+                    <label><input type="checkbox" value="ML8" onchange="aplicarFiltros()"> ML8</label>
+                    <label><input type="checkbox" value="ML9" onchange="aplicarFiltros()"> ML9</label>
+                    <label><input type="checkbox" value="ML10" onchange="aplicarFiltros()"> ML10</label>
+                    <label><input type="checkbox" value="ML11" onchange="aplicarFiltros()"> ML11</label>
+                    <label><input type="checkbox" value="ML12" onchange="aplicarFiltros()"> ML12</label>
+                </div>
+            </details>
+            
+            <details class="filter-group">
+                <summary>Estado</summary>
+                <div class="filter-content sidebar-checklist" id="filtro_estado">
+                    <label><input type="checkbox" value="0. PROGRAMAÇÃO" onchange="aplicarFiltros()"> 0. PROGRAMAÇÃO</label>
+                    <label><input type="checkbox" value="1. INICIAL" onchange="aplicarFiltros()"> 1. INICIAL</label>
+                    <label><input type="checkbox" value="2. EM ANDAMENTO" onchange="aplicarFiltros()"> 2. EM ANDAMENTO</label>
+                    <label><input type="checkbox" value="3. PREVISTO A INICIAR" onchange="aplicarFiltros()"> 3. PREVISTO A INICIAR</label>
+                    <label><input type="checkbox" value="4. INICIARAM ATIVIDADES" onchange="aplicarFiltros()"> 4. INICIARAM ATIVIDADES</label>
+                    <label><input type="checkbox" value="5. DESISTENTE" onchange="aplicarFiltros()"> 5. DESISTENTE</label>
+                </div>
+            </details>
+
+            <details class="filter-group">
+                <summary>Função</summary>
+                <div class="filter-content">
+                    <input type="text" class="sidebar-search" id="search_funcao_sidebar" placeholder="Buscar cargo..." oninput="filtrarSidebarFuncoes()">
+                    <div class="sidebar-checklist" id="filtro_funcao" style="margin-top: 8px;">
+                        <label><input type="checkbox" value="ADVOGADO JUNIOR" onchange="aplicarFiltros()"> ADVOGADO JUNIOR</label>
+                        <label><input type="checkbox" value="ALMOXARIFE" onchange="aplicarFiltros()"> ALMOXARIFE</label>
+                        <label><input type="checkbox" value="ANALISTA DE INDUSTRIALIZACAO" onchange="aplicarFiltros()"> ANALISTA DE INDUSTRIALIZACAO</label>
+                        <label><input type="checkbox" value="ANALISTA DE MEIO AMBIENTE" onchange="aplicarFiltros()"> ANALISTA DE MEIO AMBIENTE</label>
+                        <label><input type="checkbox" value="ANALISTA DE PLANEJAMENTO E ORCAMENTO" onchange="aplicarFiltros()"> ANALISTA DE PLANEJAMENTO E ORCAMENTO</label>
+                        <label><input type="checkbox" value="ANALISTA DE PROJETOS E PROCESSOS" onchange="aplicarFiltros()"> ANALISTA DE PROJETOS E PROCESSOS</label>
+                        <label><input type="checkbox" value="ANALISTA DE RH" onchange="aplicarFiltros()"> ANALISTA DE RH</label>
+                        <label><input type="checkbox" value="ANALISTA ESTOQUE" onchange="aplicarFiltros()"> ANALISTA ESTOQUE</label>
+                        <label><input type="checkbox" value="ANALISTA FINANCEIRO CONTAS A RECEBER" onchange="aplicarFiltros()"> ANALISTA FINANCEIRO CONTAS A RECEBER</label>
+                        <label><input type="checkbox" value="APRENDIZ" onchange="aplicarFiltros()"> APRENDIZ</label>
+                        <label><input type="checkbox" value="ARMADOR" onchange="aplicarFiltros()"> ARMADOR</label>
+                        <label><input type="checkbox" value="ARQUITETO (A) E URBANISTA" onchange="aplicarFiltros()"> ARQUITETO (A) E URBANISTA</label>
+                        <label><input type="checkbox" value="ASG" onchange="aplicarFiltros()"> ASG</label>
+                        <label><input type="checkbox" value="ASS. ADM (APRENDIZ)" onchange="aplicarFiltros()"> ASS. ADM (APRENDIZ)</label>
+                        <label><input type="checkbox" value="ASSIST ADM SUPRIMENTOS" onchange="aplicarFiltros()"> ASSIST ADM SUPRIMENTOS</label>
+                        <label><input type="checkbox" value="ASSIST GESTAO DE ARQUIVO" onchange="aplicarFiltros()"> ASSIST GESTAO DE ARQUIVO</label>
+                        <label><input type="checkbox" value="ASSISTENTE ADM CONTAS A RECEBER" onchange="aplicarFiltros()"> ASSISTENTE ADM CONTAS A RECEBER</label>
+                        <label><input type="checkbox" value="ASSISTENTE ADM FINANCEIRO" onchange="aplicarFiltros()"> ASSISTENTE ADM FINANCEIRO</label>
+                        <label><input type="checkbox" value="ASSISTENTE ADM VENDAS" onchange="aplicarFiltros()"> ASSISTENTE ADM VENDAS</label>
+                        <label><input type="checkbox" value="ASSISTENTE ADM." onchange="aplicarFiltros()"> ASSISTENTE ADM.</label>
+                        <label><input type="checkbox" value="ASSISTENTE ADM. (APRENDIZ)" onchange="aplicarFiltros()"> ASSISTENTE ADM. (APRENDIZ)</label>
+                        <label><input type="checkbox" value="ASSISTENTE COMERCIAL" onchange="aplicarFiltros()"> ASSISTENTE COMERCIAL</label>
+                        <label><input type="checkbox" value="ASSISTENTE DE ASSISTENCIA TECNICA" onchange="aplicarFiltros()"> ASSISTENTE DE ASSISTENCIA TECNICA</label>
+                        <label><input type="checkbox" value="ASSISTENTE DE AUDITORIA DE CONTRATO" onchange="aplicarFiltros()"> ASSISTENTE DE AUDITORIA DE CONTRATO</label>
+                        <label><input type="checkbox" value="ASSISTENTE DE COMUNICACAO" onchange="aplicarFiltros()"> ASSISTENTE DE COMUNICACAO</label>
+                        <label><input type="checkbox" value="ASSISTENTE DE CONTABILIDADE" onchange="aplicarFiltros()"> ASSISTENTE DE CONTABILIDADE</label>
+                        <label><input type="checkbox" value="ASSISTENTE DE DEPARTAMENTO DE PESSOAL" onchange="aplicarFiltros()"> ASSISTENTE DE DEPARTAMENTO DE PESSOAL</label>
+                        <label><input type="checkbox" value="ASSISTENTE DE LOGISTICA E PRODUCAO" onchange="aplicarFiltros()"> ASSISTENTE DE LOGISTICA E PRODUCAO</label>
+                        <label><input type="checkbox" value="ASSISTENTE DE PLANEJAMENTO E ORCAMENTO" onchange="aplicarFiltros()"> ASSISTENTE DE PLANEJAMENTO E ORCAMENTO</label>
+                        <label><input type="checkbox" value="ASSISTENTE DE PÓS VENDA" onchange="aplicarFiltros()"> ASSISTENTE DE PÓS VENDA</label>
+                        <label><input type="checkbox" value="ASSISTENTE DE RELACIONAMENTO" onchange="aplicarFiltros()"> ASSISTENTE DE RELACIONAMENTO</label>
+                        <label><input type="checkbox" value="ASSISTENTE DE RH" onchange="aplicarFiltros()"> ASSISTENTE DE RH</label>
+                        <label><input type="checkbox" value="AUDIOVISUAL FILMAGEM E FOTOS" onchange="aplicarFiltros()"> AUDIOVISUAL FILMAGEM E FOTOS</label>
+                        <label><input type="checkbox" value="AUX DE ENGENHARIA - BETONEIRA" onchange="aplicarFiltros()"> AUX DE ENGENHARIA - BETONEIRA</label>
+                        <label><input type="checkbox" value="AUX DE ENGENHARIA - QUALIDADE" onchange="aplicarFiltros()"> AUX DE ENGENHARIA - QUALIDADE</label>
+                        <label><input type="checkbox" value="AUX DE LOGISTICA" onchange="aplicarFiltros()"> AUX DE LOGISTICA</label>
+                        <label><input type="checkbox" value="AUX. BETONEIRA" onchange="aplicarFiltros()"> AUX. BETONEIRA</label>
+                        <label><input type="checkbox" value="AUX. DE ARQUITETURA E URBANISMO" onchange="aplicarFiltros()"> AUX. DE ARQUITETURA E URBANISMO</label>
+                        <label><input type="checkbox" value="AUX. DE CARPINTEIRO" onchange="aplicarFiltros()"> AUX. DE CARPINTEIRO</label>
+                        <label><input type="checkbox" value="AUX. DE COMPRAS" onchange="aplicarFiltros()"> AUX. DE COMPRAS</label>
+                        <label><input type="checkbox" value="AUX. DE ELETRICISTA" onchange="aplicarFiltros()"> AUX. DE ELETRICISTA</label>
+                        <label><input type="checkbox" value="AUX. DE ENCANADOR" onchange="aplicarFiltros()"> AUX. DE ENCANADOR</label>
+                        <label><input type="checkbox" value="AUX. DE MAMORISTA" onchange="aplicarFiltros()"> AUX. DE MAMORISTA</label>
+                        <label><input type="checkbox" value="AUX. DE PEDREIRO" onchange="aplicarFiltros()"> AUX. DE PEDREIRO</label>
+                        <label><input type="checkbox" value="AUX. DE SOLDADOR" onchange="aplicarFiltros()"> AUX. DE SOLDADOR</label>
+                        <label><input type="checkbox" value="AUXILIAR" onchange="aplicarFiltros()"> AUXILIAR</label>
+                        <label><input type="checkbox" value="AUXILIAR ADM DE SUPRIMENTOS" onchange="aplicarFiltros()"> AUXILIAR ADM DE SUPRIMENTOS</label>
+                        <label><input type="checkbox" value="AUXILIAR DA QUALIDADE I" onchange="aplicarFiltros()"> AUXILIAR DA QUALIDADE I</label>
+                        <label><input type="checkbox" value="AUXILIAR DE ALMOXARIFADO" onchange="aplicarFiltros()"> AUXILIAR DE ALMOXARIFADO</label>
+                        <label><input type="checkbox" value="AUXILIAR DE ARMADOR" onchange="aplicarFiltros()"> AUXILIAR DE ARMADOR</label>
+                        <label><input type="checkbox" value="AUXILIAR DE ENGENHARIA" onchange="aplicarFiltros()"> AUXILIAR DE ENGENHARIA</label>
+                        <label><input type="checkbox" value="AUXILIAR DE LOGISTICA" onchange="aplicarFiltros()"> AUXILIAR DE LOGISTICA</label>
+                        <label><input type="checkbox" value="AUXILIAR DE ORCAMENTO" onchange="aplicarFiltros()"> AUXILIAR DE ORCAMENTO</label>
+                        <label><input type="checkbox" value="AUXILIAR DE PLANEJAMENTO E ORCAMENTO" onchange="aplicarFiltros()"> AUXILIAR DE PLANEJAMENTO E ORCAMENTO</label>
+                        <label><input type="checkbox" value="AUXILIAR DE PRODUCAO (CONCRETO)" onchange="aplicarFiltros()"> AUXILIAR DE PRODUCAO (CONCRETO)</label>
+                        <label><input type="checkbox" value="AUXILIAR DE PROJETOS" onchange="aplicarFiltros()"> AUXILIAR DE PROJETOS</label>
+                        <label><input type="checkbox" value="AUXILIAR DE LABORATORIO" onchange="aplicarFiltros()"> AUXILIAR DE LABORATORIO</label>
+                        <label><input type="checkbox" value="BETONEIRO" onchange="aplicarFiltros()"> BETONEIRO</label>
+                        <label><input type="checkbox" value="CARPINTEIRO" onchange="aplicarFiltros()"> CARPINTEIRO</label>
+                        <label><input type="checkbox" value="COMPRADOR" onchange="aplicarFiltros()"> COMPRADOR</label>
+                        <label><input type="checkbox" value="CONSULTOR COMERCIAL" onchange="aplicarFiltros()"> CONSULTOR COMERCIAL</label>
+                        <label><input type="checkbox" value="CONSULTOR DE VENDAS" onchange="aplicarFiltros()"> CONSULTOR DE VENDAS</label>
+                        <label><input type="checkbox" value="CONSULTOR ONLINE VENDAS" onchange="aplicarFiltros()"> CONSULTOR ONLINE VENDAS</label>
+                        <label><input type="checkbox" value="CONSULTORA DE COMUNICACAO E MKT" onchange="aplicarFiltros()"> CONSULTORA DE COMUNICACAO E MKT</label>
+                        <label><input type="checkbox" value="CONTRA MESTRE" onchange="aplicarFiltros()"> CONTRA MESTRE</label>
+                        <label><input type="checkbox" value="COORD PROJETOS LICENCIAMENTO E MEIO AMBIENTE" onchange="aplicarFiltros()"> COORD PROJETOS MEIO AMBIENTE</label>
+                        <label><input type="checkbox" value="COORD. DE INDUSTRIALIZAÇÃO" onchange="aplicarFiltros()"> COORD. DE INDUSTRIALIZAÇÃO</label>
+                        <label><input type="checkbox" value="COORD. DE PLANEJAMENTO E ORCAMENTO" onchange="aplicarFiltros()"> COORD. DE PLANEJAMENTO E ORCAMENTO</label>
+                        <label><input type="checkbox" value="COORDENADORA DE COBRANCA E RELACIONAMENTO" onchange="aplicarFiltros()"> COORDENADORA DE COBRANCA</label>
+                        <label><input type="checkbox" value="DESENHISTA" onchange="aplicarFiltros()"> DESENHISTA</label>
+                        <label><input type="checkbox" value="DESENHISTA PROJETISTA" onchange="aplicarFiltros()"> DESENHISTA PROJETISTA</label>
+                        <label><input type="checkbox" value="DESENHISTA PROJETISTA, ORCAMENTISTA" onchange="aplicarFiltros()"> DESENHISTA PROJETISTA, ORCAMENTISTA</label>
+                        <label><input type="checkbox" value="DESPACHANTE E MOTORISTA" onchange="aplicarFiltros()"> DESPACHANTE E MOTORISTA</label>
+                        <label><input type="checkbox" value="DIRETOR COMERCIAL" onchange="aplicarFiltros()"> DIRETOR COMERCIAL</label>
+                        <label><input type="checkbox" value="DIRETOR TECNICO" onchange="aplicarFiltros()"> DIRETOR TECNICO</label>
+                        <label><input type="checkbox" value="DIETOR(A) DE ARTE" onchange="aplicarFiltros()"> DIETOR(A) DE ARTE</label>
+                        <label><input type="checkbox" value="ELETRICISTA" onchange="aplicarFiltros()"> ELETRICISTA</label>
+                        <label><input type="checkbox" value="ENCANADOR" onchange="aplicarFiltros()"> ENCANADOR</label>
+                        <label><input type="checkbox" value="ENCARREGADO" onchange="aplicarFiltros()"> ENCARREGADO</label>
+                        <label><input type="checkbox" value="ENCARREGADO DE ARMACAO" onchange="aplicarFiltros()"> ENCARREGADO DE ARMACAO</label>
+                        <label><input type="checkbox" value="ENCARREGADO DE HIDRAULICA" onchange="aplicarFiltros()"> ENCARREGADO DE HIDRAULICA</label>
+                        <label><input type="checkbox" value="ENCARREGADO DE MANUTENCAO" onchange="aplicarFiltros()"> ENCARREGADO DE MANUTENCAO</label>
+                        <label><input type="checkbox" value="ENCARREGADO DE OPERACOES" onchange="aplicarFiltros()"> ENCARREGADO DE OPERACOES</label>
+                        <label><input type="checkbox" value="ENCARREGADO DE OPERACOES II" onchange="aplicarFiltros()"> ENCARREGADO DE OPERACOES II</label>
+                        <label><input type="checkbox" value="ENCARREGADO OPERACIONAL" onchange="aplicarFiltros()"> ENCARREGADO OPERACIONAL</label>
+                        <label><input type="checkbox" value="ENGENHEIRO" onchange="aplicarFiltros()"> ENGENHEIRO</label>
+                        <label><input type="checkbox" value="ESPECIALISTA DE ORÇAMENTO" onchange="aplicarFiltros()"> ESPECIALISTA DE ORÇAMENTO</label>
+                        <label><input type="checkbox" value="ESPECIALISTA DE PLANEJAMENTO" onchange="aplicarFiltros()"> ESPECIALISTA DE PLANEJAMENTO</label>
+                        <label><input type="checkbox" value="ESTAGIARIO" onchange="aplicarFiltros()"> ESTAGIARIO</label>
+                        <label><input type="checkbox" value="EXECUTIVO DE VENDAS" onchange="aplicarFiltros()"> EXECUTIVO DE VENDAS</label>
+                        <label><input type="checkbox" value="FISCAL ADMINISTRATIVO" onchange="aplicarFiltros()"> FISCAL ADMINISTRATIVO</label>
+                        <label><input type="checkbox" value="GERENTE COMERCIAL" onchange="aplicarFiltros()"> GERENTE COMERCIAL</label>
+                        <label><input type="checkbox" value="GERENTE DE COBRANCA E RELACIONAMENTO" onchange="aplicarFiltros()"> GERENTE DE COBRANCA E RELACIONAMENTO</label>
+                        <label><input type="checkbox" value="GERENTE DE INCORPORACAO" onchange="aplicarFiltros()"> GERENTE DE INCORPORACAO</label>
+                        <label><input type="checkbox" value="GERENTE DE MARKETING" onchange="aplicarFiltros()"> GERENTE DE MARKETING</label>
+                        <label><input type="checkbox" value="GERENTE DE RH" onchange="aplicarFiltros()"> GERENTE DE RH</label>
+                        <label><input type="checkbox" value="GESSEIRO" onchange="aplicarFiltros()"> GESSEIRO</label>
+                        <label><input type="checkbox" value="GESTOR DE TRAFEGO E SOCIAL MEDIA MANAGER" onchange="aplicarFiltros()"> GESTOR DE TRAFEGO E SOCIAL MEDIA</label>
+                        <label><input type="checkbox" value="GESTOR DE TRAFEGO MARKETING" onchange="aplicarFiltros()"> GESTOR DE TRAFEGO MARKETING</label>
+                        <label><input type="checkbox" value="GESTOR QUALIDADE" onchange="aplicarFiltros()"> GESTOR QUALIDADE</label>
+                        <label><input type="checkbox" value="LABORATORISTA" onchange="aplicarFiltros()"> LABORATORISTA</label>
+                        <label><input type="checkbox" value="LIDER DE PROJETO AVANCA" onchange="aplicarFiltros()"> LIDER DE PROJETO AVANCA</label>
+                        <label><input type="checkbox" value="MARCENEIRO" onchange="aplicarFiltros()"> MARCENEIRO</label>
+                        <label><input type="checkbox" value="MARMORISTA" onchange="aplicarFiltros()"> MARMORISTA</label>
+                        <label><input type="checkbox" value="MECANICO" onchange="aplicarFiltros()"> MECANICO</label>
+                        <label><input type="checkbox" value="MESTRE DE OBRAS" onchange="aplicarFiltros()"> MESTRE DE OBRAS</label>
+                        <label><input type="checkbox" value="MONTADOR" onchange="aplicarFiltros()"> MONTADOR</label>
+                        <label><input type="checkbox" value="MOTORISTA" onchange="aplicarFiltros()"> MOTORISTA</label>
+                        <label><input type="checkbox" value="MOTORISTA DE BETONEIRA" onchange="aplicarFiltros()"> MOTORISTA DE BETONEIRA</label>
+                        <label><input type="checkbox" value="OPERADOR DE BETONEIRA" onchange="aplicarFiltros()"> OPERADOR DE BETONEIRA</label>
+                        <label><input type="checkbox" value="OPERADOR DE CAMINHAO BETONEIRA" onchange="aplicarFiltros()"> OPERADOR DE CAMINHAO BETONEIRA</label>
+                        <label><input type="checkbox" value="OPERADOR DE CREMALHEIRA" onchange="aplicarFiltros()"> OPERADOR DE CREMALHEIRA</label>
+                        <label><input type="checkbox" value="OPERADOR DE EMPILHADEIRA" onchange="aplicarFiltros()"> OPERADOR DE EMPILHADEIRA</label>
+                        <label><input type="checkbox" value="OPERADOR DE MANIPULADOR TELESCOPICO" onchange="aplicarFiltros()"> OPERADOR DE MANIPULADOR TELESCOPICO</label>
+                        <label><input type="checkbox" value="OPERADOR DE MAQUINAS" onchange="aplicarFiltros()"> OPERADOR DE MAQUINAS</label>
+                        <label><input type="checkbox" value="OPERADOR DE MISTURADOR" onchange="aplicarFiltros()"> OPERADOR DE MISTURADOR</label>
+                        <label><input type="checkbox" value="OPERADOR DE RETROESCAVADEIRA" onchange="aplicarFiltros()"> OPERADOR DE RETROESCAVADEIRA</label>
+                        <label><input type="checkbox" value="PEDREIRO" onchange="aplicarFiltros()"> PEDREIRO</label>
+                        <label><input type="checkbox" value="PINTOR" onchange="aplicarFiltros()"> PINTOR</label>
+                        <label><input type="checkbox" value="PORTEIRO" onchange="aplicarFiltros()"> PORTEIRO</label>
+                        <label><input type="checkbox" value="PRODUÇÃO EVENTOS E GRAFICA" onchange="aplicarFiltros()"> PRODUÇÃO EVENTOS E GRAFICA</label>
+                        <label><input type="checkbox" value="PROMOTOR/A EVENTOS" onchange="aplicarFiltros()"> PROMOTOR/A EVENTOS</label>
+                        <label><input type="checkbox" value="PSICOLOGO ORGANIZACIONAL" onchange="aplicarFiltros()"> PSICOLOGO ORGANIZACIONAL</label>
+                        <label><input type="checkbox" value="SECRETARIA EXECUTIVA" onchange="aplicarFiltros()"> SECRETARIA EXECUTIVA</label>
+                        <label><input type="checkbox" value="SERVENTE" onchange="aplicarFiltros()"> SERVENTE</label>
+                        <label><input type="checkbox" value="SOCIAL MEDIA" onchange="aplicarFiltros()"> SOCIAL MEDIA</label>
+                        <label><input type="checkbox" value="SOLDADOR" onchange="aplicarFiltros()"> SOLDADOR</label>
+                        <label><input type="checkbox" value="SUPERVISOR COMERCIAL" onchange="aplicarFiltros()"> SUPERVISOR COMERCIAL</label>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="header">
+            <div style="display:flex; align-items:center; gap:15px;">
+                <div class="header-breadcrumbs">Contratações &nbsp; > &nbsp; <strong>Estado das Contratações</strong></div>
+                <div class="top-nav-tabs">
+                    <button class="top-nav-btn active" id="btn_tab_kanban" onclick="trocarAbaVagas('kanban')">📋 Quadro de Vagas</button>
+                    <button class="top-nav-btn" id="btn_tab_dash" onclick="trocarAbaVagas('dashboard')">📊 Dashboard & Insights</button>
+                </div>
+            </div>
+            
+            <div class="header-search-container">
+                <input type="text" id="input_busca_geral" class="header-search-input" placeholder="🔍 Buscar por candidato ou cargo..." oninput="aplicarFiltros()">
+            </div>
+
+            <div class="header-actions">
+                <button class="btn-pdf" onclick="exportarPDF()" title="Exportar Relatório em PDF">📄 Relatório PDF</button>
+                <button class="btn-new" onclick="abrirModal()">+ Nova Contratação</button>
+            </div>
+        </header>
+
+        <!-- VISÃO 1: KANBAN -->
+        <div class="kanban-wrapper" id="visao_kanban">
+            <div class="kanban-board">
+                <div class="kanban-column">
+                    <div class="kanban-column-header">
+                        <div class="kanban-column-title-container">
+                            <span class="col-title" style="color:#57535D;">0. PROGRAMAÇÃO</span> 
+                            <span class="col-count" id="count_0. PROGRAMAÇÃO">0 VAGAS</span>
+                        </div>
+                        <span style="color:#aaa; cursor:pointer;" onclick="abrirModal()">+</span>
+                    </div>
+                    <div class="cards-container" id="0. PROGRAMAÇÃO" ondrop="soltar(event)" ondragover="permitirSoltar(event)"></div>
+                </div>
+
+                <div class="kanban-column">
+                    <div class="kanban-column-header">
+                        <div class="kanban-column-title-container">
+                            <span class="col-title" style="color:#f1c40f;">1. INICIAL</span> 
+                            <span class="col-count" id="count_1. INICIAL">0 CONTRATAÇÕES</span>
+                        </div>
+                        <span style="color:#aaa; cursor:pointer;" onclick="abrirModal()">+</span>
+                    </div>
+                    <div class="cards-container" id="1. INICIAL" ondrop="soltar(event)" ondragover="permitirSoltar(event)"></div>
+                </div>
+
+                <div class="kanban-column">
+                    <div class="kanban-column-header">
+                        <div class="kanban-column-title-container">
+                            <span class="col-title" style="color:#0088cc;">2. EM ANDAMENTO</span> 
+                            <span class="col-count" id="count_2. EM ANDAMENTO">0 CONTRATAÇÕES</span>
+                        </div>
+                        <span style="color:#aaa; cursor:pointer;" onclick="abrirModal()">+</span>
+                    </div>
+                    <div class="cards-container" id="2. EM ANDAMENTO" ondrop="soltar(event)" ondragover="permitirSoltar(event)"></div>
+                </div>
+
+                <div class="kanban-column">
+                    <div class="kanban-column-header">
+                        <div class="kanban-column-title-container">
+                            <span class="col-title" style="color:#e67e22;">3. PREVISTO A INICIAR</span> 
+                            <span class="col-count" id="count_3. PREVISTO A INICIAR">0 CONTRATAÇÕES</span>
+                        </div>
+                        <span style="color:#aaa; cursor:pointer;" onclick="abrirModal()">+</span>
+                    </div>
+                    <div class="cards-container" id="3. PREVISTO A INICIAR" ondrop="soltar(event)" ondragover="permitirSoltar(event)"></div>
+                </div>
+
+                <div class="kanban-column">
+                    <div class="kanban-column-header">
+                        <div class="kanban-column-title-container">
+                            <span class="col-title" style="color:#27ae60;">4. INICIARAM ATIVIDADES</span> 
+                            <span class="col-count" id="count_4. INICIARAM ATIVIDADES">0 CONTRATAÇÕES</span>
+                        </div>
+                        <span style="color:#aaa; cursor:pointer;" onclick="abrirModal()">+</span>
+                    </div>
+                    <div class="cards-container" id="4. INICIARAM ATIVIDADES" ondrop="soltar(event)" ondragover="permitirSoltar(event)"></div>
+                </div>
+
+                <div class="kanban-column collapsed" id="col_desistente_container">
+                    <div class="kanban-column-header" onclick="toggleColuna('col_desistente_container')" style="cursor: pointer;">
+                        <span class="btn-expand" style="color:#555; font-size: 16px;">⇦</span>
+                        <div class="kanban-column-title-container" style="align-items: center;">
+                            <span class="col-title" style="color:#e74c3c;">5. DESISTENTE</span> 
+                            <span class="col-count" id="count_5. DESISTENTE">0 CONTRATAÇÕES</span>
+                        </div>
+                    </div>
+                    <div class="cards-container" id="5. DESISTENTE" ondrop="soltar(event)" ondragover="permitirSoltar(event)" style="display: none; padding-top: 10px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VISÃO 2: DASHBOARD & INSIGHTS DE R&S -->
+        <div id="visao_dashboard">
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-val" id="kpi_total_vagas">0</div>
+                    <div class="kpi-title">Total de Vagas Exibidas</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-val" id="kpi_programadas" style="color:#57535D;">0</div>
+                    <div class="kpi-title">Vagas em Programação</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-val" id="kpi_nr35_prog" style="color:#e67e22;">0</div>
+                    <div class="kpi-title">Exames NR-35 Futuros (Altura)</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-val" id="kpi_vagas_concluidas" style="color:#27ae60;">0</div>
+                    <div class="kpi-title">Iniciaram Atividades</div>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-box-wrapper">
+                    <div class="chart-box-title">Programação Futura de Vagas por Obra</div>
+                    <div class="chart-container"><canvas id="chart_programacao_obras"></canvas></div>
+                </div>
+
+                <div class="chart-box-wrapper">
+                    <div class="chart-box-title">Distribuição Geral por Estado</div>
+                    <div class="chart-container"><canvas id="chart_estados_vagas"></canvas></div>
+                </div>
+
+                <div class="chart-box-wrapper" style="grid-column: 1 / -1;">
+                    <div class="chart-box-title">Cargos Programados (Normal vs. Exame Trabalho em Altura)</div>
+                    <div class="chart-container" style="height: 220px;"><canvas id="chart_cargos_programados"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL VAGA -->
+    <div class="modal-overlay" id="modalVaga">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Nova Contratação</h2>
+                <button type="button" class="btn-cancel" style="border:none; background:transparent; font-size:24px; padding:0;" onclick="fecharModal()">×</button>
+            </div>
+            
+            <div class="modal-body">
+                <form id="formContratacao" onsubmit="salvarDados(event)">
+                    <input type="hidden" id="card_id_edit"> 
+                    
+                    <div class="form-section">
+                        <div class="form-section-header">∨ Obra</div>
+                        <div class="form-grid">
+
+                            <div class="form-group">
+                                <label>Data Solicitação</label>
+                                <input type="date" id="solicitacao" readonly placeholder="Automática ao iniciar">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="required">Estado</label>
+                                <select id="estado" required onchange="handleEstadoChangeInModal()">
+                                    <option value="0. PROGRAMAÇÃO">0. PROGRAMAÇÃO</option>
+                                    <option value="1. INICIAL">1. INICIAL</option>
+                                    <option value="2. EM ANDAMENTO">2. EM ANDAMENTO</option>
+                                    <option value="3. PREVISTO A INICIAR">3. PREVISTO A INICIAR</option>
+                                    <option value="4. INICIARAM ATIVIDADES">4. INICIARAM ATIVIDADES</option>
+                                    <option value="5. DESISTENTE">5. DESISTENTE</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label id="label_nome_candidato">Nome do Candidato</label>
+                                <input type="text" id="nome_candidato" placeholder="Deixe em branco para VAGA LIVRE">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="required">Necessidade da Vaga (MÊS)? *</label>
+                                <select id="necessidade" required>
+                                    <option value="">Selecione...</option>
+                                    <option value="JAN">JAN</option><option value="FEV">FEV</option>
+                                    <option value="MAR">MAR</option><option value="ABR">ABR</option>
+                                    <option value="MAI">MAI</option><option value="JUN">JUN</option>
+                                    <option value="JUL">JUL</option><option value="AGO">AGO</option>
+                                    <option value="SET">SET</option><option value="OUT">OUT</option>
+                                    <option value="NOV">NOV</option><option value="DEZ">DEZ</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="required">Resp. Solicitação</label>
+                                <select id="resp_solicitacao" required onchange="verificarOutros('resp_solicitacao', 'resp_solicitacao_outro')">
+                                    <option value="">Selecione...</option>
+                                    <option value="ALDEMIR">ALDEMIR</option><option value="ALLYSSON">ALLYSSON</option>
+                                    <option value="ANA RAISSA">ANA RAISSA</option><option value="ANDREW">ANDREW</option>
+                                    <option value="ARTHUR DUTRA">ARTHUR DUTRA</option><option value="AYRTON">AYRTON</option>
+                                    <option value="BRENO">BRENO</option><option value="CABRAL">CABRAL</option>
+                                    <option value="CHICO JUNIOR">CHICO JUNIOR</option><option value="DEYSE">DEYSE</option>
+                                    <option value="DIEGO BRENNER">DIEGO BRENNER</option><option value="EUGENIA">EUGENIA</option>
+                                    <option value="FELIPE">FELIPE</option><option value="GABRIEL ALMEIDA">GABRIEL ALMEIDA</option>
+                                    <option value="GABRIELA FRANCHELLO">GABRIELA FRANCHELLO</option><option value="HAMILTON">HAMILTON</option>
+                                    <option value="JOAO NETO">JOAO NETO</option><option value="JOSE PISANO">JOSE PISANO</option>
+                                    <option value="KALINNE">KALINNE</option><option value="KURT">KURT</option>
+                                    <option value="LARISSA ALMEIDA">LARISSA ALMEIDA</option><option value="LEIDESON">LEIDESON</option>
+                                    <option value="LENILSON">LENILSON</option><option value="LEONARDO">LEONARDO</option>
+                                    <option value="LEONARDO MOURA">LEONARDO MOURA</option><option value="LEONARDO PINHEIRO">LEONARDO PINHEIRO</option>
+                                    <option value="LUIS PISANO">LUIS PISANO</option><option value="MARIA EDUARDA">MARIA EDUARDA</option>
+                                    <option value="MARIO">MARIO</option><option value="MARTIN PISANO">MARTIN PISANO</option>
+                                    <option value="MATEUS">MATEUS</option><option value="MICARLA">MICARLA</option>
+                                    <option value="MONICA">MONICA</option><option value="NARA">NARA</option>
+                                    <option value="NARA MARIA">NARA MARIA</option><option value="SHIRLEY">SHIRLEY</option>
+                                    <option value="VANDERSON">VANDERSON</option><option value="YLLANA">YLLANA</option>
+                                    <option value="OUTRO" style="font-weight:bold; color:var(--primary-blue);">+ OUTRO (INCLUIR NOVO)</option>
+                                </select>
+                                <input type="text" id="resp_solicitacao_outro" style="display:none; margin-top:8px; border-color:var(--primary-blue);" placeholder="Digite o nome...">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="required">Obra</label>
+                                <select id="obra" required onchange="verificarOutros('obra', 'obra_outra')">
+                                    <option value="">Selecione...</option>
+                                    <option value="MIRANTES">MIRANTES</option><option value="ML2">ML2</option>
+                                    <option value="ML3">ML3</option><option value="ML4">ML4</option><option value="ML5">ML5</option>
+                                    <option value="ML6">ML6</option><option value="ML7">ML7</option>
+                                    <option value="ML8">ML8</option><option value="ML9">ML9</option>
+                                    <option value="ML10">ML10</option><option value="ML11">ML11</option>
+                                    <option value="ML12">ML12</option>
+                                    <option value="OUTRO" style="font-weight:bold; color:var(--primary-blue);">+ OUTRO (INCLUIR NOVO)</option>
+                                </select>
+                                <input type="text" id="obra_outra" style="display:none; margin-top:8px; border-color:var(--primary-blue);" placeholder="Digite o nome da obra...">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="required">Função (Cargo)</label>
+                                <select id="funcao" required onchange="verificarOutros('funcao', 'funcao_outra')">
+                                    <option value="">Selecione...</option>
+                                    <option value="ADVOGADO JUNIOR">ADVOGADO JUNIOR</option><option value="ALMOXARIFE">ALMOXARIFE</option>
+                                    <option value="ANALISTA DE INDUSTRIALIZACAO">ANALISTA DE INDUSTRIALIZACAO</option>
+                                    <option value="ANALISTA DE MEIO AMBIENTE">ANALISTA DE MEIO AMBIENTE</option>
+                                    <option value="ANALISTA DE PLANEJAMENTO E ORCAMENTO">ANALISTA DE PLANEJAMENTO E ORCAMENTO</option>
+                                    <option value="ANALISTA DE PROJETOS E PROCESSOS">ANALISTA DE PROJETOS E PROCESSOS</option>
+                                    <option value="ANALISTA DE RH">ANALISTA DE RH</option>
+                                    <option value="ANALISTA ESTOQUE">ANALISTA ESTOQUE</option>
+                                    <option value="ANALISTA FINANCEIRO CONTAS A RECEBER">ANALISTA FINANCEIRO CONTAS A RECEBER</option>
+                                    <option value="APRENDIZ">APRENDIZ</option>
+                                    <option value="ARMADOR">ARMADOR</option>
+                                    <option value="ARQUITETO (A) E URBANISTA">ARQUITETO (A) E URBANISTA</option>
+                                    <option value="ASG">ASG</option>
+                                    <option value="ASS. ADM (APRENDIZ)">ASS. ADM (APRENDIZ)</option>
+                                    <option value="ASSIST ADM SUPRIMENTOS">ASSIST ADM SUPRIMENTOS</option>
+                                    <option value="ASSIST GESTAO DE ARQUIVO">ASSIST GESTAO DE ARQUIVO</option>
+                                    <option value="ASSISTENTE ADM CONTAS A RECEBER">ASSISTENTE ADM CONTAS A RECEBER</option>
+                                    <option value="ASSISTENTE ADM FINANCEIRO">ASSISTENTE ADM FINANCEIRO</option>
+                                    <option value="ASSISTENTE ADM VENDAS">ASSISTENTE ADM VENDAS</option>
+                                    <option value="ASSISTENTE ADM.">ASSISTENTE ADM.</option>
+                                    <option value="ASSISTENTE ADM. (APRENDIZ)">ASSISTENTE ADM. (APRENDIZ)</option>
+                                    <option value="ASSISTENTE COMERCIAL">ASSISTENTE COMERCIAL</option>
+                                    <option value="ASSISTENTE DE ASSISTENCIA TECNICA">ASSISTENTE DE ASSISTENCIA TECNICA</option>
+                                    <option value="ASSISTENTE DE AUDITORIA DE CONTRATO">ASSISTENTE DE AUDITORIA DE CONTRATO</option>
+                                    <option value="ASSISTENTE DE COMUNICACAO">ASSISTENTE DE COMUNICACAO</option>
+                                    <option value="ASSISTENTE DE CONTABILIDADE">ASSISTENTE DE CONTABILIDADE</option>
+                                    <option value="ASSISTENTE DE DEPARTAMENTO DE PESSOAL">ASSISTENTE DE DEPARTAMENTO DE PESSOAL</option>
+                                    <option value="ASSISTENTE DE LOGISTICA E PRODUCAO">ASSISTENTE DE LOGISTICA E PRODUCAO</option>
+                                    <option value="ASSISTENTE DE PLANEJAMENTO E ORCAMENTO">ASSISTENTE DE PLANEJAMENTO E ORCAMENTO</option>
+                                    <option value="ASSISTENTE DE PÓS VENDA">ASSISTENTE DE PÓS VENDA</option>
+                                    <option value="ASSISTENTE DE RELACIONAMENTO">ASSISTENTE DE RELACIONAMENTO</option>
+                                    <option value="ASSISTENTE DE RH">ASSISTENTE DE RH</option>
+                                    <option value="AUDIOVISUAL FILMAGEM E FOTOS">AUDIOVISUAL FILMAGEM E FOTOS</option>
+                                    <option value="AUX DE ENGENHARIA - BETONEIRA">AUX DE ENGENHARIA - BETONEIRA</option>
+                                    <option value="AUX DE ENGENHARIA - QUALIDADE">AUX DE ENGENHARIA - QUALIDADE</option>
+                                    <option value="AUX DE LOGISTICA">AUX DE LOGISTICA</option>
+                                    <option value="AUX. BETONEIRA">AUX. BETONEIRA</option>
+                                    <option value="AUX. DE ARQUITETURA E URBANISMO">AUX. DE ARQUITETURA E URBANISMO</option>
+                                    <option value="AUX. DE CARPINTEIRO">AUX. DE CARPINTEIRO</option>
+                                    <option value="AUX. DE COMPRAS">AUX. DE COMPRAS</option>
+                                    <option value="AUX. DE ELETRICISTA">AUX. DE ELETRICISTA</option>
+                                    <option value="AUX. DE ENCANADOR">AUX. DE ENCANADOR</option>
+                                    <option value="AUX. DE MAMORISTA">AUX. DE MAMORISTA</option>
+                                    <option value="AUX. DE PEDREIRO">AUX. DE PEDREIRO</option>
+                                    <option value="AUX. DE SOLDADOR">AUX. DE SOLDADOR</option>
+                                    <option value="AUXILIAR">AUXILIAR</option>
+                                    <option value="AUXILIAR ADM DE SUPRIMENTOS">AUXILIAR ADM DE SUPRIMENTOS</option>
+                                    <option value="AUXILIAR DA QUALIDADE I">AUXILIAR DA QUALIDADE I</option>
+                                    <option value="AUXILIAR DE ALMOXARIFADO">AUXILIAR DE ALMOXARIFADO</option>
+                                    <option value="AUXILIAR DE ARMADOR">AUXILIAR DE ARMADOR</option>
+                                    <option value="AUXILIAR DE ENGENHARIA">AUXILIAR DE ENGENHARIA</option>
+                                    <option value="AUXILIAR DE LOGISTICA">AUXILIAR DE LOGISTICA</option>
+                                    <option value="AUXILIAR DE ORCAMENTO">AUXILIAR DE ORCAMENTO</option>
+                                    <option value="AUXILIAR DE PLANEJAMENTO E ORCAMENTO">AUXILIAR DE PLANEJAMENTO E ORCAMENTO</option>
+                                    <option value="AUXILIAR DE PRODUCAO (CONCRETO)">AUXILIAR DE PRODUCAO (CONCRETO)</option>
+                                    <option value="AUXILIAR DE PROJETOS">AUXILIAR DE PROJETOS</option>
+                                    <option value="AUXILIAR DE LABORATORIO">AUXILIAR DE LABORATORIO</option>
+                                    <option value="BETONEIRO">BETONEIRO</option>
+                                    <option value="CARPINTEIRO">CARPINTEIRO</option>
+                                    <option value="COMPRADOR">COMPRADOR</option>
+                                    <option value="CONSULTOR COMERCIAL">CONSULTOR COMERCIAL</option>
+                                    <option value="CONSULTOR DE VENDAS">CONSULTOR DE VENDAS</option>
+                                    <option value="CONSULTOR ONLINE VENDAS">CONSULTOR ONLINE VENDAS</option>
+                                    <option value="CONSULTORA DE COMUNICACAO E MKT">CONSULTORA DE COMUNICACAO E MKT</option>
+                                    <option value="CONTRA MESTRE">CONTRA MESTRE</option>
+                                    <option value="COORD PROJETOS LICENCIAMENTO E MEIO AMBIENTE">COORD PROJETOS MEIO AMBIENTE</option>
+                                    <option value="COORD. DE INDUSTRIALIZAÇÃO">COORD. DE INDUSTRIALIZAÇÃO</option>
+                                    <option value="COORD. DE PLANEJAMENTO E ORCAMENTO">COORD. DE PLANEJAMENTO E ORCAMENTO</option>
+                                    <option value="COORDENADORA DE COBRANCA E RELACIONAMENTO">COORDENADORA DE COBRANCA</option>
+                                    <option value="DESENHISTA">DESENHISTA</option>
+                                    <option value="DESENHISTA PROJETISTA">DESENHISTA PROJETISTA</option>
+                                    <option value="DESENHISTA PROJETISTA, ORCAMENTISTA">DESENHISTA PROJETISTA, ORCAMENTISTA</option>
+                                    <option value="DESPACHANTE E MOTORISTA">DESPACHANTE E MOTORISTA</option>
+                                    <option value="DIRETOR COMERCIAL">DIRETOR COMERCIAL</option>
+                                    <option value="DIRETOR TECNICO">DIRETOR TECNICO</option>
+                                    <option value="DIETOR(A) DE ARTE">DIETOR(A) DE ARTE</option>
+                                    <option value="ELETRICISTA">ELETRICISTA</option>
+                                    <option value="ENCANADOR">ENCANADOR</option>
+                                    <option value="ENCARREGADO">ENCARREGADO</option>
+                                    <option value="ENCARREGADO DE ARMACAO">ENCARREGADO DE ARMACAO</option>
+                                    <option value="ENCARREGADO DE HIDRAULICA">ENCARREGADO DE HIDRAULICA</option>
+                                    <option value="ENCARREGADO DE MANUTENCAO">ENCARREGADO DE MANUTENCAO</option>
+                                    <option value="ENCARREGADO DE OPERACOES">ENCARREGADO DE OPERACOES</option>
+                                    <option value="ENCARREGADO DE OPERACOES II">ENCARREGADO DE OPERACOES II</option>
+                                    <option value="ENCARREGADO OPERACIONAL">ENCARREGADO OPERACIONAL</option>
+                                    <option value="ENGENHEIRO">ENGENHEIRO</option>
+                                    <option value="ESPECIALISTA DE ORÇAMENTO">ESPECIALISTA DE ORÇAMENTO</option>
+                                    <option value="ESPECIALISTA DE PLANEJAMENTO">ESPECIALISTA DE PLANEJAMENTO</option>
+                                    <option value="ESTAGIARIO">ESTAGIARIO</option>
+                                    <option value="EXECUTIVO DE VENDAS">EXECUTIVO DE VENDAS</option>
+                                    <option value="FISCAL ADMINISTRATIVO">FISCAL ADMINISTRATIVO</option>
+                                    <option value="GERENTE COMERCIAL">GERENTE COMERCIAL</option>
+                                    <option value="GERENTE DE COBRANCA E RELACIONAMENTO">GERENTE DE COBRANCA E RELACIONAMENTO</option>
+                                    <option value="GERENTE DE INCORPORACAO">GERENTE DE INCORPORACAO</option>
+                                    <option value="GERENTE DE MARKETING">GERENTE DE MARKETING</option>
+                                    <option value="GERENTE DE RH">GERENTE DE RH</option>
+                                    <option value="GESSEIRO">GESSEIRO</option>
+                                    <option value="GESTOR DE TRAFEGO E SOCIAL MEDIA MANAGER">GESTOR DE TRAFEGO E SOCIAL MEDIA</option>
+                                    <option value="GESTOR DE TRAFEGO MARKETING">GESTOR DE TRAFEGO MARKETING</option>
+                                    <option value="GESTOR QUALIDADE">GESTOR QUALIDADE</option>
+                                    <option value="LABORATORISTA">LABORATORISTA</option>
+                                    <option value="LIDER DE PROJETO AVANCA">LIDER DE PROJETO AVANCA</option>
+                                    <option value="MARCENEIRO">MARCENEIRO</option>
+                                    <option value="MARMORISTA">MARMORISTA</option>
+                                    <option value="MECANICO">MECANICO</option>
+                                    <option value="MESTRE DE OBRAS">MESTRE DE OBRAS</option>
+                                    <option value="MONTADOR">MONTADOR</option>
+                                    <option value="MOTORISTA">MOTORISTA</option>
+                                    <option value="MOTORISTA DE BETONEIRA">MOTORISTA DE BETONEIRA</option>
+                                    <option value="OPERADOR DE BETONEIRA">OPERADOR DE BETONEIRA</option>
+                                    <option value="OPERADOR DE CAMINHAO BETONEIRA">OPERADOR DE CAMINHAO BETONEIRA</option>
+                                    <option value="OPERADOR DE CREMALHEIRA">OPERADOR DE CREMALHEIRA</option>
+                                    <option value="OPERADOR DE EMPILHADEIRA">OPERADOR DE EMPILHADEIRA</option>
+                                    <option value="OPERADOR DE MANIPULADOR TELESCOPICO">OPERADOR DE MANIPULADOR TELESCOPICO</option>
+                                    <option value="OPERADOR DE MAQUINAS">OPERADOR DE MAQUINAS</option>
+                                    <option value="OPERADOR DE MISTURADOR">OPERADOR DE MISTURADOR</option>
+                                    <option value="OPERADOR DE RETROESCAVADEIRA">OPERADOR DE RETROESCAVADEIRA</option>
+                                    <option value="PEDREIRO">PEDREIRO</option>
+                                    <option value="PINTOR">PINTOR</option>
+                                    <option value="PORTEIRO">PORTEIRO</option>
+                                    <option value="PRODUÇÃO EVENTOS E GRAFICA">PRODUÇÃO EVENTOS E GRAFICA</option>
+                                    <option value="PROMOTOR/A EVENTOS">PROMOTOR/A EVENTOS</option>
+                                    <option value="PSICOLOGO ORGANIZACIONAL">PSICOLOGO ORGANIZACIONAL</option>
+                                    <option value="SECRETARIA EXECUTIVA">SECRETARIA EXECUTIVA</option>
+                                    <option value="SERVENTE">SERVENTE</option>
+                                    <option value="SOCIAL MEDIA">SOCIAL MEDIA</option>
+                                    <option value="SOLDADOR">SOLDADOR</option>
+                                    <option value="SUPERVISOR COMERCIAL">SUPERVISOR COMERCIAL</option>
+                                    <option value="OUTRO" style="font-weight:bold; color:var(--primary-blue);">+ OUTRO (INCLUIR NOVO)</option>
+                                </select>
+                                <input type="text" id="funcao_outra" style="display:none; margin-top:8px; border-color:var(--primary-blue);" placeholder="Digite o novo cargo...">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Serviço</label>
+                                <input type="hidden" id="servico_hidden" value="">
+                                <div class="custom-select-header" id="servico_header_text" onclick="toggleServico()" title="Selecione o Serviço...">
+                                    Selecione o Serviço... <span style="float: right;">▼</span>
+                                </div>
+                                <div class="custom-select-list" id="servico_list">
+                                    <div class="dropdown-search-box">
+                                        <input type="text" class="dropdown-search-input" id="search_servico" placeholder="Buscar serviço..." oninput="filtrarDropdownList('search_servico', 'servico_list')">
+                                    </div>
+                                    <div class="select-item" onclick="selecionarServico('A DEFINIR')">A DEFINIR</div>
+                                    <div class="select-item" onclick="selecionarServico('ABASTECIMENTO')">ABASTECIMENTO</div>
+                                    <div class="select-item" onclick="selecionarServico('ACABAMENTOS INTERNO')">ACABAMENTOS INTERNO</div>
+                                    <div class="select-item" onclick="selecionarServico('ADM RH')">ADM RH</div>
+                                    <div class="select-item" onclick="selecionarServico('ADM SUPRIMENTOS')">ADM SUPRIMENTOS</div>
+                                    <div class="select-item" onclick="selecionarServico('ADMINISTRACAO')">ADMINISTRACAO</div>
+                                    <div class="select-item" onclick="selecionarServico('ALMOXARIFADO')">ALMOXARIFADO</div>
+                                    <div class="select-item" onclick="selecionarServico('ALMOXARIFE')">ALMOXARIFE</div>
+                                    <div class="select-item" onclick="selecionarServico('ALV. ESTRUTURAL')">ALV. ESTRUTURAL</div>
+                                    <div class="select-item" onclick="selecionarServico('ALVENARIA')">ALVENARIA</div>
+                                    <div class="select-item" onclick="selecionarServico('APOIO')">APOIO</div>
+                                    <div class="select-item" onclick="selecionarServico('AREAS COMUNS')">AREAS COMUNS</div>
+                                    <div class="select-item" onclick="selecionarServico('ARMACAO')">ARMACAO</div>
+                                    <div class="select-item" onclick="selecionarServico('ARQUIVO')">ARQUIVO</div>
+                                    <div class="select-item" onclick="selecionarServico('ASSISTENCIA TECNICA')">ASSISTENCIA TECNICA</div>
+                                    <div class="select-item" onclick="selecionarServico('AUDITORIA DE CONTRATOS')">AUDITORIA DE CONTRATOS</div>
+                                    <div class="select-item" onclick="selecionarServico('BETONEIRA')">BETONEIRA</div>
+                                    <div class="select-item" onclick="selecionarServico('BOMBA DE CONCRETO')">BOMBA DE CONCRETO</div>
+                                    <div class="select-item" onclick="selecionarServico('CARPINTARIA')">CARPINTARIA</div>
+                                    <div class="select-item" onclick="selecionarServico('CERAMICA')">CERAMICA</div>
+                                    <div class="select-item" onclick="selecionarServico('COBOGO')">COBOGO</div>
+                                    <div class="select-item" onclick="selecionarServico('COBERTURA')">COBERTURA</div>
+                                    <div class="select-item" onclick="selecionarServico('COBRANCAS')">COBRANCAS</div>
+                                    <div class="select-item" onclick="selecionarServico('COMPRAS')">COMPRAS</div>
+                                    <div class="select-item" onclick="selecionarServico('CONFERENCIA DE CONTRATOS')">CONFERENCIA DE CONTRATOS</div>
+                                    <div class="select-item" onclick="selecionarServico('CONSULTOR')">CONSULTOR</div>
+                                    <div class="select-item" onclick="selecionarServico('CONTENÇÕES')">CONTENÇÕES</div>
+                                    <div class="select-item" onclick="selecionarServico('CONTRA MARCO')">CONTRA MARCO</div>
+                                    <div class="select-item" onclick="selecionarServico('CONTRAPISO')">CONTRAPISO</div>
+                                    <div class="select-item" onclick="selecionarServico('CREDITO')">CREDITO</div>
+                                    <div class="select-item" onclick="selecionarServico('DEMOLICAO')">DEMOLICAO</div>
+                                    <div class="select-item" onclick="selecionarServico('DEPARTAMENTO PESSOAL')">DEPARTAMENTO PESSOAL</div>
+                                    <div class="select-item" onclick="selecionarServico('DESIGN')">DESIGN</div>
+                                    <div class="select-item" onclick="selecionarServico('DIREÇÃO DE ARTE')">DIREÇÃO DE ARTE</div>
+                                    <div class="select-item" onclick="selecionarServico('DRENAGEM')">DRENAGEM</div>
+                                    <div class="select-item" onclick="selecionarServico('DRY-WALL')">DRY-WALL</div>
+                                    <div class="select-item" onclick="selecionarServico('ENGENHARIA')">ENGENHARIA</div>
+                                    <div class="select-item" onclick="selecionarServico('ESTOQUE')">ESTOQUE</div>
+                                    <div class="select-item" onclick="selecionarServico('ESTRUTURA')">ESTRUTURA</div>
+                                    <div class="select-item" onclick="selecionarServico('EVENTOS E OUTRAS ACOES')">EVENTOS E OUTRAS ACOES</div>
+                                    <div class="select-item" onclick="selecionarServico('FABRICA DE BLOCOS')">FABRICA DE BLOCOS</div>
+                                    <div class="select-item" onclick="selecionarServico('FACHADA')">FACHADA</div>
+                                    <div class="select-item" onclick="selecionarServico('FINANCEIRO')">FINANCEIRO</div>
+                                    <div class="select-item" onclick="selecionarServico('FINANCIAMENTO IMOBILIARIO')">FINANCIAMENTO IMOBILIARIO</div>
+                                    <div class="select-item" onclick="selecionarServico('FISCAL')">FISCAL</div>
+                                    <div class="select-item" onclick="selecionarServico('FISCALIZACAO')">FISCALIZACAO</div>
+                                    <div class="select-item" onclick="selecionarServico('FORRO DRY-WALL ARAMADO')">FORRO DRY-WALL ARAMADO</div>
+                                    <div class="select-item" onclick="selecionarServico('FORRO GESSO')">FORRO GESSO</div>
+                                    <div class="select-item" onclick="selecionarServico('GESSO REVESTIMENTO')">GESSO REVESTIMENTO</div>
+                                    <div class="select-item" onclick="selecionarServico('GESTAO')">GESTAO</div>
+                                    <div class="select-item" onclick="selecionarServico('GESTAO AMBIENTAL')">GESTAO AMBIENTAL</div>
+                                    <div class="select-item" onclick="selecionarServico('GESTAO DA OBRA')">GESTAO DA OBRA</div>
+                                    <div class="select-item" onclick="selecionarServico('GESTAO DE ARQUIVOS')">GESTAO DE ARQUIVOS</div>
+                                    <div class="select-item" onclick="selecionarServico('GESTAO DE EQUIPES')">GESTAO DE EQUIPES</div>
+                                    <div class="select-item" onclick="selecionarServico('GESTAO DE TRAFEGO')">GESTAO DE TRAFEGO</div>
+                                    <div class="select-item" onclick="selecionarServico('GESTÃO COMERCIAL')">GESTÃO COMERCIAL</div>
+                                    <div class="select-item" onclick="selecionarServico('GESTAO TECNICA DAS OBRAS')">GESTAO TECNICA DAS OBRAS</div>
+                                    <div class="select-item" onclick="selecionarServico('IMPERMEABILIZAÇÃO')">IMPERMEABILIZAÇÃO</div>
+                                    <div class="select-item" onclick="selecionarServico('INCORPORACAO')">INCORPORACAO</div>
+                                    <div class="select-item" onclick="selecionarServico('INDUSTRIALIZAÇÃO')">INDUSTRIALIZAÇÃO</div>
+                                    <div class="select-item" onclick="selecionarServico('INFRA')">INFRA</div>
+                                    <div class="select-item" onclick="selecionarServico('INST. HIDROSSANITARIA')">INST. HIDROSSANITARIA</div>
+                                    <div class="select-item" onclick="selecionarServico('INSTALACAO E.P.C.')">INSTALACAO E.P.C.</div>
+                                    <div class="select-item" onclick="selecionarServico('INSTALACAO ELETRICA')">INSTALACAO ELETRICA</div>
+                                    <div class="select-item" onclick="selecionarServico('INSTALACOES')">INSTALACOES</div>
+                                    <div class="select-item" onclick="selecionarServico('JURIDICO')">JURIDICO</div>
+                                    <div class="select-item" onclick="selecionarServico('LABORATORIO')">LABORATORIO</div>
+                                    <div class="select-item" onclick="selecionarServico('LAJE')">LAJE</div>
+                                    <div class="select-item" onclick="selecionarServico('LICENCIAMENTO')">LICENCIAMENTO</div>
+                                    <div class="select-item" onclick="selecionarServico('LIMPEZA')">LIMPEZA</div>
+                                    <div class="select-item" onclick="selecionarServico('LOGISTICA')">LOGISTICA</div>
+                                    <div class="select-item" onclick="selecionarServico('MARKETING E VENDAS')">MARKETING E VENDAS</div>
+                                    <div class="select-item" onclick="selecionarServico('MARMORARIA')">MARMORARIA</div>
+                                    <div class="select-item" onclick="selecionarServico('MECANICO')">MECANICO</div>
+                                    <div class="select-item" onclick="selecionarServico('METALURGIA')">METALURGIA</div>
+                                    <div class="select-item" onclick="selecionarServico('MONTAGEM DE ANDAIME')">MONTAGEM DE ANDAIME</div>
+                                    <div class="select-item" onclick="selecionarServico('MONTAGEM LINHA DE VIDA')">MONTAGEM LINHA DE VIDA</div>
+                                    <div class="select-item" onclick="selecionarServico('OBRA')">OBRA</div>
+                                    <div class="select-item" onclick="selecionarServico('OPERADOR DE MAQUINA')">OPERADOR DE MAQUINA</div>
+                                    <div class="select-item" onclick="selecionarServico('OPERADOR DE RETROESCAVADEIRA')">OPERADOR DE RETROESCAVADEIRA</div>
+                                    <div class="select-item" onclick="selecionarServico('OPERAÇÃO DE CAMINHÃO BETONEIRA')">OPERAÇÃO DE CAMINHÃO BETONEIRA</div>
+                                    <div class="select-item" onclick="selecionarServico('ORÇAMENTO')">ORÇAMENTO</div>
+                                    <div class="select-item" onclick="selecionarServico('PINTURA EXTERNA')">PINTURA EXTERNA</div>
+                                    <div class="select-item" onclick="selecionarServico('PINTURA INTERNA')">PINTURA INTERNA</div>
+                                    <div class="select-item" onclick="selecionarServico('PLANEJAMENTO')">PLANEJAMENTO</div>
+                                    <div class="select-item" onclick="selecionarServico('PLANEJAMENTO E ORCAMENTO')">PLANEJAMENTO E ORCAMENTO</div>
+                                    <div class="select-item" onclick="selecionarServico('PORTARIA')">PORTARIA</div>
+                                    <div class="select-item" onclick="selecionarServico('PORTAS')">PORTAS</div>
+                                    <div class="select-item" onclick="selecionarServico('PÓS VENDA')">PÓS VENDA</div>
+                                    <div class="select-item" onclick="selecionarServico('PRODUCAO DE CONCRETO')">PRODUCAO DE CONCRETO</div>
+                                    <div class="select-item" onclick="selecionarServico('PROJETOS')">PROJETOS</div>
+                                    <div class="select-item" onclick="selecionarServico('PROSPECÇÃO EXTERNA')">PROSPECÇÃO EXTERNA</div>
+                                    <div class="select-item" onclick="selecionarServico('QUALIDADE')">QUALIDADE</div>
+                                    <div class="select-item" onclick="selecionarServico('RADIER')">RADIER</div>
+                                    <div class="select-item" onclick="selecionarServico('REBOCO EXTERNO')">REBOCO EXTERNO</div>
+                                    <div class="select-item" onclick="selecionarServico('REBOCO INTERNO')">REBOCO INTERNO</div>
+                                    <div class="select-item" onclick="selecionarServico('RECEBIMENTO DE MATERIAIS')">RECEBIMENTO DE MATERIAIS</div>
+                                    <div class="select-item" onclick="selecionarServico('REGULARIZACAO')">REGULARIZACAO</div>
+                                    <div class="select-item" onclick="selecionarServico('REJUNTE')">REJUNTE</div>
+                                    <div class="select-item" onclick="selecionarServico('RELACIONAMENTO CONDOMINIO')">RELACIONAMENTO CONDOMINIO</div>
+                                    <div class="select-item" onclick="selecionarServico('RELATORIO DE EVOLUCAO')">RELATORIO DE EVOLUCAO</div>
+                                    <div class="select-item" onclick="selecionarServico('RELATORIOS E LAUDOS')">RELATORIOS E LAUDOS</div>
+                                    <div class="select-item" onclick="selecionarServico('REPRESENTAÇAÕ GRÁFICA DOS PROJETOS')">REPRESENTAÇAÕ GRÁFICA DOS PROJETOS</div>
+                                    <div class="select-item" onclick="selecionarServico('REVIT')">REVIT</div>
+                                    <div class="select-item" onclick="selecionarServico('RUFO')">RUFO</div>
+                                    <div class="select-item" onclick="selecionarServico('SELO AZUL')">SELO AZUL</div>
+                                    <div class="select-item" onclick="selecionarServico('SERVIÇOS DE CARPINTARIA')">SERVIÇOS DE CARPINTARIA</div>
+                                    <div class="select-item" onclick="selecionarServico('SGQ')">SGQ</div>
+                                    <div class="select-item" onclick="selecionarServico('SHAFT')">SHAFT</div>
+                                    <div class="select-item" onclick="selecionarServico('SOCIAL MEDIA')">SOCIAL MEDIA</div>
+                                    <div class="select-item" onclick="selecionarServico('SUPERVISOR COMERCIAL')">SUPERVISOR COMERCIAL</div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label class="required">Atividades (Flegar mais de um)</label>
+                                <div class="multiselect-header" id="atividades_header_text" onclick="toggleAtividades()" title="">
+                                    Selecione as atividades... <span style="float: right;">▼</span>
+                                </div>
+                                <div class="multiselect-list" id="atividades_list">
+                                    <div class="dropdown-search-box">
+                                        <input type="text" class="dropdown-search-input" id="search_atividade" placeholder="Buscar atividade..." oninput="filtrarDropdownList('search_atividade', 'atividades_list')">
+                                    </div>
+                                    <label><input type="checkbox" value="A DEFINIR"> A DEFINIR</label>
+                                    <label><input type="checkbox" value="ACOLHIMENTO"> ACOLHIMENTO</label>
+                                    <label><input type="checkbox" value="ACOMPANHAMENTO DE PRODUCAO DE CONCRETO"> ACOMPANHAMENTO DE PRODUCAO DE CONCRETO</label>
+                                    <label><input type="checkbox" value="ACOMPANHAMENTO E TESTE NO R&S"> ACOMPANHAMENTO E TESTE NO R&S</label>
+                                    <label><input type="checkbox" value="ACOMPANHAR PROJETO PEDAGOGICO"> ACOMPANHAR PROJETO PEDAGOGICO</label>
+                                    <label><input type="checkbox" value="ACOMPANHAR, MENSURAR, RELATAR DADOS"> ACOMPANHAR, MENSURAR, RELATAR DADOS</label>
+                                    <label><input type="checkbox" value="ACONSELHAMENTOS"> ACONSELHAMENTOS</label>
+                                    <label><input type="checkbox" value="ALINHAMENTOS, BRIEFINGS, PAUTAS"> ALINHAMENTOS, BRIEFINGS, PAUTAS</label>
+                                    <label><input type="checkbox" value="ALV. ESTRUTURAL"> ALV. ESTRUTURAL</label>
+                                    <label><input type="checkbox" value="ALV. VEDACAO"> ALV. VEDACAO</label>
+                                    <label><input type="checkbox" value="ANALISE DE AGREGADOS"> ANALISE DE AGREGADOS</label>
+                                    <label><input type="checkbox" value="ANALISE DE DADOS COMERCIAIS"> ANALISE DE DADOS COMERCIAIS</label>
+                                    <label><input type="checkbox" value="ANALISE FINANCEIRA DO CLIENTE"> ANALISE FINANCEIRA DO CLIENTE</label>
+                                    <label><input type="checkbox" value="ANALISES DOS MATERIAIS CRIATIVOS"> ANALISES DOS MATERIAIS CRIATIVOS</label>
+                                    <label><input type="checkbox" value="APOIO"> APOIO</label>
+                                    <label><input type="checkbox" value="APOIO ADM"> APOIO ADM</label>
+                                    <label><input type="checkbox" value="APOIO A SEGURANÇA DO TRABALHO"> APOIO A SEGURANÇA DO TRABALHO</label>
+                                    <label><input type="checkbox" value="APONTAMENTOS"> APONTAMENTOS</label>
+                                    <label><input type="checkbox" value="ARMACAO"> ARMACAO</label>
+                                    <label><input type="checkbox" value="ARMAZENAMENTO"> ARMAZENAMENTO</label>
+                                    <label><input type="checkbox" value="ATENDIMENTO AO CLIENTE"> ATENDIMENTO AO CLIENTE</label>
+                                    <label><input type="checkbox" value="ATERRO E COMPACTACAO"> ATERRO E COMPACTACAO</label>
+                                    <label><input type="checkbox" value="ATIVIDADES FINANCEIRAS"> ATIVIDADES FINANCEIRAS</label>
+                                    <label><input type="checkbox" value="AUDITORIAS"> AUDITORIAS</label>
+                                    <label><input type="checkbox" value="AUTOCAD"> AUTOCAD</label>
+                                    <label><input type="checkbox" value="BANCADAS DE GRANITO"> BANCADAS DE GRANITO</label>
+                                    <label><input type="checkbox" value="CAIXAS DRENAGEM"> CAIXAS DRENAGEM</label>
+                                    <label><input type="checkbox" value="CAMPANHAS COMERCIAIS"> CAMPANHAS COMERCIAIS</label>
+                                    <label><input type="checkbox" value="CAMPANHAS COMERCIAIS ON E OFF"> CAMPANHAS COMERCIAIS ON E OFF</label>
+                                    <label><input type="checkbox" value="CANTEIRO"> CANTEIRO</label>
+                                    <label><input type="checkbox" value="CAPIACOS"> CAPIACOS</label>
+                                    <label><input type="checkbox" value="CAPTACAO IMOBILIARIAS"> CAPTACAO IMOBILIARIAS</label>
+                                    <label><input type="checkbox" value="CARPINTARIA"> CARPINTARIA</label>
+                                    <label><input type="checkbox" value="CERÂMICA"> CERÂMICA</label>
+                                    <label><input type="checkbox" value="CHAPIM"> CHAPIM</label>
+                                    <label><input type="checkbox" value="COBERTURA"> COBERTURA</label>
+                                    <label><input type="checkbox" value="COBRANCAS CLIENTE INADIMPLENTES"> COBRANCAS CLIENTE INADIMPLENTES</label>
+                                    <label><input type="checkbox" value="COLETAS E ENTREGAS DE MERCADORIAS"> COLETAS E ENTREGAS DE MERCADORIAS</label>
+                                    <label><input type="checkbox" value="COMPRAS"> COMPRAS</label>
+                                    <label><input type="checkbox" value="COMPRAS DE URGENCIA"> COMPRAS DE URGENCIA</label>
+                                    <label><input type="checkbox" value="CONSERTO DE PALETE"> CONSERTO DE PALETE</label>
+                                    <label><input type="checkbox" value="CONTENÇÕES"> CONTENÇÕES</label>
+                                    <label><input type="checkbox" value="CONTRAMARCOS"> CONTRAMARCOS</label>
+                                    <label><input type="checkbox" value="CONTRATOS DE FINANCIAMENTO"> CONTRATOS DE FINANCIAMENTO</label>
+                                    <label><input type="checkbox" value="CONTROLE DE DOCUMENTOS"> CONTROLE DE DOCUMENTOS</label>
+                                    <label><input type="checkbox" value="CONTROLE DE EPI"> CONTROLE DE EPI</label>
+                                    <label><input type="checkbox" value="CONTROLE DE ESTOQUE"> CONTROLE DE ESTOQUE</label>
+                                    <label><input type="checkbox" value="CONTROLE DIST. MATERIAL"> CONTROLE DIST. MATERIAL</label>
+                                    <label><input type="checkbox" value="CONTROLE E DIGITALIZACÃO DE NOTAS"> CONTROLE E DIGITALIZACÃO DE NOTAS</label>
+                                    <label><input type="checkbox" value="CONTROLE E ENTREGA DE EPI"> CONTROLE E ENTREGA DE EPI</label>
+                                    <label><input type="checkbox" value="COORD. EQUIPES"> COORD. EQUIPES</label>
+                                    <label><input type="checkbox" value="COORD. EQUIPES DE PRODUCAO"> COORD. EQUIPES DE PRODUCAO</label>
+                                    <label><input type="checkbox" value="COORDENAR REPAROS"> COORDENAR REPAROS</label>
+                                    <label><input type="checkbox" value="CORRIMAO"> CORRIMAO</label>
+                                    <label><input type="checkbox" value="CORRESPONDENTE BANCARIO"> CORRESPONDENTE BANCARIO</label>
+                                    <label><input type="checkbox" value="COTACOES"> COTACOES</label>
+                                    <label><input type="checkbox" value="DEPARTAMENTO PESSOAL"> DEPARTAMENTO PESSOAL</label>
+                                    <label><input type="checkbox" value="DIRECAO DE ARTE"> DIRECAO DE ARTE</label>
+                                    <label><input type="checkbox" value="DSS"> DSS</label>
+                                    <label><input type="checkbox" value="ELABORACAO DOCUMENTOS"> ELABORACAO DOCUMENTOS</label>
+                                    <label><input type="checkbox" value="ENQUADRAR VENDAS NO SISTEMA"> ENQUADRAR VENDAS NO SISTEMA</label>
+                                    <label><input type="checkbox" value="ENSAIOS DE CONCRETO"> ENSAIOS DE CONCRETO</label>
+                                    <label><input type="checkbox" value="ENTREGA DE AREAS COMUNS"> ENTREGA DE AREAS COMUNS</label>
+                                    <label><input type="checkbox" value="ENTREGAS DE CHAVES"> ENTREGAS DE CHAVES</label>
+                                    <label><input type="checkbox" value="EQUIP. CALIBRADOS"> EQUIP. CALIBRADOS</label>
+                                    <label><input type="checkbox" value="ESCADA MARINHEIRO"> ESCADA MARINHEIRO</label>
+                                    <label><input type="checkbox" value="ESCADA PRE-MOLDADA"> ESCADA PRE-MOLDADA</label>
+                                    <label><input type="checkbox" value="ESCALA DE EQUIPES"> ESCALA DE EQUIPES</label>
+                                    <label><input type="checkbox" value="ESCORAMENTO E ASSOALHO DE LAJE"> ESCORAMENTO E ASSOALHO DE LAJE</label>
+                                    <label><input type="checkbox" value="ESTACAS"> ESTACAS</label>
+                                    <label><input type="checkbox" value="ESTRATEGIAS COMERCIAIS"> ESTRATEGIAS COMERCIAIS</label>
+                                    <label><input type="checkbox" value="EXCEL"> EXCEL</label>
+                                    <label><input type="checkbox" value="EXECUÇÃO DE GABARITO"> EXECUÇÃO DE GABARITO</label>
+                                    <label><input type="checkbox" value="FABRICACAO DE BLOCOS"> FABRICACAO DE BLOCOS</label>
+                                    <label><input type="checkbox" value="FABRICACAO DE CONTRAMARCO"> FABRICACAO DE CONTRAMARCO</label>
+                                    <label><input type="checkbox" value="FACHADA"> FACHADA</label>
+                                    <label><input type="checkbox" value="FECHAMENTO FOLHA"> FECHAMENTO FOLHA</label>
+                                    <label><input type="checkbox" value="FISCALIZAÇÃO"> FISCALIZAÇÃO</label>
+                                    <label><input type="checkbox" value="FISCALIZACAO DE SEGURANCA"> FISCALIZACAO DE SEGURANCA</label>
+                                    <label><input type="checkbox" value="FISCALIZACAO DE SERVICO"> FISCALIZACAO DE SERVICO</label>
+                                    <label><input type="checkbox" value="FORRO DE GESSO"> FORRO DE GESSO</label>
+                                    <label><input type="checkbox" value="GALERIA DE DRENAGEM"> GALERIA DE DRENAGEM</label>
+                                    <label><input type="checkbox" value="GERENCIA MKT"> GERENCIA MKT</label>
+                                    <label><input type="checkbox" value="GERENCIAMENTO DE VENDAS"> GERENCIAMENTO DE VENDAS</label>
+                                    <label><input type="checkbox" value="GERENCIAR DEMANDAS TECNICAS"> GERENCIAR DEMANDAS TECNICAS</label>
+                                    <label><input type="checkbox" value="GESSO DE REVESTIMENTO"> GESSO DE REVESTIMENTO</label>
+                                    <label><input type="checkbox" value="GESTAO ALMOXARIFADO"> GESTAO ALMOXARIFADO</label>
+                                    <label><input type="checkbox" value="GESTAO AMBIENTAL"> GESTAO AMBIENTAL</label>
+                                    <label><input type="checkbox" value="GESTAO COMERCIAL"> GESTAO COMERCIAL</label>
+                                    <label><input type="checkbox" value="GESTAO DE ACERVO DIGITAL"> GESTAO DE ACERVO DIGITAL</label>
+                                    <label><input type="checkbox" value="GESTAO DE ACERVO FISICO"> GESTAO DE ACERVO FISICO</label>
+                                    <label><input type="checkbox" value="GESTAO DE TRAFEGO"> GESTAO DE TRAFEGO</label>
+                                    <label><input type="checkbox" value="GESTÃO EQUIPES"> GESTÃO EQUIPES</label>
+                                    <label><input type="checkbox" value="GESTAO ESTRATEGICA"> GESTAO ESTRATEGICA</label>
+                                    <label><input type="checkbox" value="GESTAO RESIDUOS"> GESTAO RESIDUOS</label>
+                                    <label><input type="checkbox" value="IMPERMEABILIZAÇÃO"> IMPERMEABILIZAÇÃO</label>
+                                    <label><input type="checkbox" value="INCORPORACAO"> INCORPORACAO</label>
+                                    <label><input type="checkbox" value="INDENTIFICACAO E ANALISE DE PERFIS"> INDENTIFICACAO E ANALISE DE PERFIS</label>
+                                    <label><input type="checkbox" value="INDICADORES"> INDICADORES</label>
+                                    <label><input type="checkbox" value="INDUSTRIALIZACAO"> INDUSTRIALIZACAO</label>
+                                    <label><input type="checkbox" value="INFRAESTRUTURAS"> INFRAESTRUTURAS</label>
+                                    <label><input type="checkbox" value="INST. HIDROSSANITARIA"> INST. HIDROSSANITARIA</label>
+                                    <label><input type="checkbox" value="INSTALAÇÕES"> INSTALAÇÕES</label>
+                                    <label><input type="checkbox" value="INSTALAÇÕES ELÉTRICAS EM GERAL"> INSTALAÇÕES ELÉTRICAS EM GERAL</label>
+                                    <label><input type="checkbox" value="INVENTARIO"> INVENTARIO</label>
+                                    <label><input type="checkbox" value="LAJE"> LAJE</label>
+                                    <label><input type="checkbox" value="LANCAMENTOS DE NOTAS"> LANCAMENTOS DE NOTAS</label>
+                                    <label><input type="checkbox" value="LEVANTAMENTO DE PRODUCAO"> LEVANTAMENTO DE PRODUCAO</label>
+                                    <label><input type="checkbox" value="LEVANTAMENTOS"> LEVANTAMENTOS</label>
+                                    <label><input type="checkbox" value="LIBERACAO DE EPI"> LIBERACAO DE EPI</label>
+                                    <label><input type="checkbox" value="LIMPEZA"> LIMPEZA</label>
+                                    <label><input type="checkbox" value="LIMPEZA DAS INSTALACOES COMERCIAIS"> LIMPEZA DAS INSTALACOES COMERCIAIS</label>
+                                    <label><input type="checkbox" value="LINHA DE VIDA"> LINHA DE VIDA</label>
+                                    <label><input type="checkbox" value="LOGISTICA INTERNA"> LOGISTICA INTERNA</label>
+                                    <label><input type="checkbox" value="MEDIACAO DE CONFLITOS"> MEDIACAO DE CONFLITOS</label>
+                                    <label><input type="checkbox" value="MODELAGEM BIM"> MODELAGEM BIM</label>
+                                    <label><input type="checkbox" value="MONITORAR TURMA"> MONITORAR TURMA</label>
+                                    <label><input type="checkbox" value="MONTAGEM DE ANDAIME"> MONTAGEM DE ANDAIME</label>
+                                    <label><input type="checkbox" value="MURO"> MURO</label>
+                                    <label><input type="checkbox" value="NEGOCIACOES COM FORNECEDORES"> NEGOCIACOES COM FORNECEDORES</label>
+                                    <label><input type="checkbox" value="OPERADOR DE EMPILHADEIRA"> OPERADOR DE EMPILHADEIRA</label>
+                                    <label><input type="checkbox" value="OPERADOR DE RETROESCAVADEIRA"> OPERADOR DE RETROESCAVADEIRA</label>
+                                    <label><input type="checkbox" value="OPERAR MANIPULADOR TELESCOPICO"> OPERAR MANIPULADOR TELESCOPICO</label>
+                                    <label><input type="checkbox" value="ORGANIZACAO ESCRITORIO"> ORGANIZACAO ESCRITORIO</label>
+                                    <label><input type="checkbox" value="ORIENTACOES"> ORIENTACOES</label>
+                                    <label><input type="checkbox" value="PERFIL DE DESEMPENHO"> PERFIL DE DESEMPENHO</label>
+                                    <label><input type="checkbox" value="PINTURA EXTERNA"> PINTURA EXTERNA</label>
+                                    <label><input type="checkbox" value="PINTURA INTERNA DE APARTAMENTOS"> PINTURA INTERNA DE APARTAMENTOS</label>
+                                    <label><input type="checkbox" value="PLANEJAMENTO DE CAMPANHAS"> PLANEJAMENTO DE CAMPANHAS</label>
+                                    <label><input type="checkbox" value="PLANEJAMENTO E ORCAMENTO DE OBRA"> PLANEJAMENTO E ORCAMENTO DE OBRA</label>
+                                    <label><input type="checkbox" value="PLANEJAMENTO ESTRATEGICO"> PLANEJAMENTO ESTRATEGICO</label>
+                                    <label><input type="checkbox" value="PORTARIA"> PORTARIA</label>
+                                    <label><input type="checkbox" value="PORTAS"> PORTAS</label>
+                                    <label><input type="checkbox" value="POSICIONAMENTO DE MARCA"> POSICIONAMENTO DE MARCA</label>
+                                    <label><input type="checkbox" value="PQO"> PQO</label>
+                                    <label><input type="checkbox" value="PREVENCAO DE ACIDENTES"> PREVENCAO DE ACIDENTES</label>
+                                    <label><input type="checkbox" value="PROCESSOS GERENCIAIS"> PROCESSOS GERENCIAIS</label>
+                                    <label><input type="checkbox" value="PRODUCAO DE TRACOS"> PRODUCAO DE TRACOS</label>
+                                    <label><input type="checkbox" value="PROGRAMAS DE PLANOS AMBIENTAIS"> PROGRAMAS DE PLANOS AMBIENTAIS</label>
+                                    <label><input type="checkbox" value="PROJETOS DE ENGENHARIA"> PROJETOS DE ENGENHARIA</label>
+                                    <label><input type="checkbox" value="QUANTITATIVOS"> QUANTITATIVOS</label>
+                                    <label><input type="checkbox" value="R&S"> R&S</label>
+                                    <label><input type="checkbox" value="RADIER"> RADIER</label>
+                                    <label><input type="checkbox" value="REALIZAR MANUTENCOES PREVENTIVAS DE ROTINA"> REALIZAR MANUTENCOES PREVENTIVAS DE ROTINA</label>
+                                    <label><input type="checkbox" value="REBOCO EXTERNO"> REBOCO EXTERNO</label>
+                                    <label><input type="checkbox" value="REBOCO INTERNO"> REBOCO INTERNO</label>
+                                    <label><input type="checkbox" value="RECEBIMENTO DE MATERIAIS"> RECEBIMENTO DE MATERIAIS</label>
+                                    <label><input type="checkbox" value="REGULARIZACAO"> REGULARIZACAO</label>
+                                    <label><input type="checkbox" value="REJUNTE"> REJUNTE</label>
+                                    <label><input type="checkbox" value="RELACIONAMENTO CONDOMINIO"> RELACIONAMENTO CONDOMINIO</label>
+                                    <label><input type="checkbox" value="RELATORIO DE EVOLUCAO"> RELATORIO DE EVOLUCAO</label>
+                                    <label><input type="checkbox" value="RELATORIOS E LAUDOS"> RELATORIOS E LAUDOS</label>
+                                    <label><input type="checkbox" value="REPRESENTAÇAÕ GRÁFICA DOS PROJETOS"> REPRESENTAÇAÕ GRÁFICA DOS PROJETOS</label>
+                                    <label><input type="checkbox" value="REVIT"> REVIT</label>
+                                    <label><input type="checkbox" value="RUFO"> RUFO</label>
+                                    <label><input type="checkbox" value="SELO AZUL"> SELO AZUL</label>
+                                    <label><input type="checkbox" value="SERVIÇOS DE CARPINTARIA"> SERVIÇOS DE CARPINTARIA</label>
+                                    <label><input type="checkbox" value="SGQ"> SGQ</label>
+                                    <label><input type="checkbox" value="SHAFT"> SHAFT</label>
+                                    <label><input type="checkbox" value="SOCIAL MEDIA"> SOCIAL MEDIA</label>
+                                    <label><input type="checkbox" value="SUPERVISOR COMERCIAL"> SUPERVISOR COMERCIAL</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="required">Prazo *</label>
+                                <select id="prazo" required>
+                                    <option value="">Selecione...</option>
+                                    <option value="01 MES">01 MES</option>
+                                    <option value="02 MESES">02 MESES</option>
+                                    <option value="03 MESES">03 MESES</option>
+                                    <option value="04 MESES">04 MESES</option>
+                                    <option value="05 MESES">05 MESES</option>
+                                    <option value="06 MESES">06 MESES</option>
+                                    <option value="07 MESES">07 MESES</option>
+                                    <option value="08 MESES">08 MESES</option>
+                                    <option value="09 MESES">09 MESES</option>
+                                    <option value="10 MESES">10 MESES</option>
+                                    <option value="11 MESES">11 MESES</option>
+                                    <option value="12 MESES">12 MESES</option>
+                                    <option value="18 MESES">18 MESES</option>
+                                    <option value="24 MESES">24 MESES</option>
+                                    <option value="INDETERMINADO">INDETERMINADO</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="required">Contrato *</label>
+                                <select id="contrato" required>
+                                    <option value="">Selecione...</option>
+                                    <option value="APRENDIZ">APRENDIZ</option>
+                                    <option value="CLT – EXPERIENCIA">CLT – EXPERIENCIA</option>
+                                    <option value="CLT – INDETERMINADO">CLT – INDETERMINADO</option>
+                                    <option value="CLT - OBRA CERTA">CLT - OBRA CERTA</option>
+                                    <option value="ESTAGIO">ESTAGIO</option>
+                                    <option value="PJ">PJ</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="required">Trabalho em Altura?</label>
+                                <select id="trabalho_altura" required>
+                                    <option value="">Selecione...</option>
+                                    <option value="SIM">SIM</option>
+                                    <option value="NAO">NÃO</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group"><label>Tamanho Fardamento</label><input type="text" id="fardamento"></div>
+                            <div class="form-group"><label>Numero Calçado</label><input type="number" id="calcado"></div>
+                            
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label id="label_contato">Contato</label>
+                                <div class="wa-container">
+                                    <input type="text" id="contato" placeholder="DDD + Numero" style="flex-grow: 1;" oninput="verificarWhatsApp()">
+                                    <button type="button" id="btn_wa" class="btn-whatsapp" onclick="abrirWhatsApp()" title="Abrir conversa no WhatsApp">💬 WhatsApp</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-header">∨ RH</div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Contactado</label>
+                                <select id="contactado">
+                                    <option value="">Selecione...</option>
+                                    <option value="SIM">SIM</option>
+                                    <option value="NAO">NÃO</option>
+                                    <option value="SEM TELEFONE">SEM TELEFONE</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Fazer Exame</label>
+                                <input type="date" id="fazer_exame">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Entrega Docs</label>
+                                <select id="entrega_docs">
+                                    <option value=""></option>
+                                    <option value="EM ANDAMENTO">EM ANDAMENTO</option>
+                                    <option value="ENTREGUE">ENTREGUE</option>
+                                    <option value="PENDENTE">PENDENTE</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Resultado Exame</label>
+                                <select id="resultado_exame">
+                                    <option value=""></option>
+                                    <option value="AGUARDANDO">AGUARDANDO</option>
+                                    <option value="COM PENDENCIAS">COM PENDENCIAS</option>
+                                    <option value="NÃO COMPARECEU">NÃO COMPARECEU</option>
+                                    <option value="NÃO SE APLICA">NÃO SE APLICA</option>
+                                    <option value="OK">OK</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="grid-column: span 4;" id="container_historico_notas">
+                                <label>Histórico de Observações (Registrado)</label>
+                                <textarea id="notas_historico_visual" rows="3" readonly placeholder="Nenhuma observação registrada ainda."></textarea>
+                            </div>
+
+                            <div class="form-group" style="grid-column: span 4;">
+                                <label id="label_nova_nota">Nova Observação</label>
+                                <textarea id="notas_nova_observacao" rows="2" placeholder="Digite uma nova nota aqui..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer" style="margin-top: 20px;">
+                        <button type="button" id="btn_duplicar" class="btn-duplicate" style="display:none;" onclick="duplicarVaga()">Duplicar Vaga</button>
+                        <button type="button" class="btn-cancel" onclick="fecharModal()">Cancelar</button>
+                        <button type="submit" class="btn-new">Salvar e Fechar</button>
+                    </div>
+
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const urlAppScript = "https://script.google.com/macros/s/AKfycbxPbm6bl-W8ym_L9_y4r1ze65FlsKaLEdUCusDf-_MGJtv4UouJn0IL16kj2T0tilcm0g/exec";
+        let bancoDeDados = {};
+        let draggedCard = null;
+        let chartProgObras = null, chartEstados = null, chartCargosProg = null;
+        let timeoutConexao = null; 
+
+        document.addEventListener("DOMContentLoaded", function() {
+            carregarDados();
+
+            setTimeout(function() {
+                const textEl = document.querySelector('.loading-text');
+                const tela = document.getElementById('tela_carregamento');
+                if (tela && tela.style.display !== 'none' && textEl) {
+                    textEl.innerHTML = 'A internet parece um pouco lenta... Quase lá, organizando os cards!';
+                }
+            }, 6000);
+
+            timeoutConexao = setTimeout(function() {
+                const tela = document.getElementById('tela_carregamento');
+                if (tela && tela.style.display !== 'none') {
+                    tela.innerHTML = '<h3 style="color:red; text-align:center;">Tempo limite de conexão excedido.<br>Por favor, recarregue a página (F5).</h3>';
+                }
+            }, 20000); 
+        });
+
+        function dispararCelebracao() {
+            const container = document.getElementById('emoji_celebration_container');
+            if (!container) return;
+
+            const emojis = ['🎉', '🥳', '👏', '🚀', '✨', '🏆', '⭐'];
+            const qtd = 22;
+
+            for (let i = 0; i < qtd; i++) {
+                setTimeout(() => {
+                    const el = document.createElement('div');
+                    el.className = 'floating-emoji';
+                    el.innerText = emojis[Math.floor(Math.random() * emojis.length)];
+                    el.style.left = Math.random() * 92 + 'vw';
+                    const size = Math.random() * 20 + 24; 
+                    el.style.fontSize = size + 'px';
+                    container.appendChild(el);
+
+                    setTimeout(() => { el.remove(); }, 2500);
+                }, i * 90);
+            }
+        }
+
+        function processarDadosPlanilha(data) {
+            clearTimeout(timeoutConexao); 
+            document.getElementById('tela_carregamento').style.display = 'none';
+            
+            bancoDeDados = {}; 
+            document.querySelectorAll('.cards-container').forEach(c => c.innerHTML = '');
+            
+            if (Array.isArray(data)) {
+                data.forEach(item => {
+                    bancoDeDados[item.id] = item;
+                    renderizarCartao(item);
+                });
+            }
+            
+            atualizarContadores();
+            atualizarFiltroAno();
+            aplicarFiltros();
+        }
+
+        function carregarDados() {
+            const script = document.createElement('script');
+            script.src = urlAppScript + '?callback=processarDadosPlanilha&t=' + new Date().getTime();
+            script.onerror = function() {
+                document.getElementById('tela_carregamento').innerHTML = '<h3 style="color:red;">Erro ao conectar com a planilha.</h3>';
+            };
+            document.body.appendChild(script);
+        }
+
+        function renderizarCartao(dados) {
+            let dataFormatada = "";
+            if(dados.solicitacao) {
+                const parts = String(dados.solicitacao).split('T')[0].split('-'); 
+                if(parts.length >= 3) {
+                    dataFormatada = ` - ${parts[2]}-${parts[1]}`;
+                }
+            }
+
+            let respNome = "SEM RESP";
+            if (dados.resp_solicitacao && dados.resp_solicitacao !== "") {
+                respNome = dados.resp_solicitacao.split(' ')[0].toUpperCase();
+            }
+
+            let nomeDisplay = (dados.nome_candidato && dados.nome_candidato.trim() !== "" && dados.nome_candidato !== "NOME NÃO INFORMADO") ? dados.nome_candidato : "VAGA LIVRE";
+            let isVagaLivre = (nomeDisplay === "VAGA LIVRE");
+
+            let cardEl = document.getElementById(dados.id);
+            if(!cardEl) {
+                cardEl = document.createElement('div');
+                cardEl.className = 'card';
+                cardEl.id = dados.id;
+                cardEl.draggable = true;
+                cardEl.ondragstart = arrastar;
+                cardEl.onclick = function() { abrirModal(dados.id); };
+            }
+
+            let corBorda = '#57535D'; 
+            if(dados.estado && dados.estado.includes('1')) corBorda = '#f1c40f'; 
+            if(dados.estado && dados.estado.includes('2')) corBorda = '#0088cc'; 
+            if(dados.estado && dados.estado.includes('3')) corBorda = '#e67e22'; 
+            if(dados.estado && dados.estado.includes('4')) corBorda = '#27ae60'; 
+            if(dados.estado && dados.estado.includes('5')) corBorda = '#e74c3c'; 
+            cardEl.style.borderLeftColor = corBorda;
+
+            if (typeof dados.atividades === 'string') {
+                dados.atividades = dados.atividades.split(',').map(s => s.trim());
+            }
+
+            let tagsHtml = "";
+            
+            if (dados.necessidade) tagsHtml += `<span class="tag tag-programacao">📅 MÊS: ${dados.necessidade}</span>`;
+            if (isVagaLivre) tagsHtml += `<span class="tag tag-vaga-livre">🔓 VAGA LIVRE</span>`;
+
+            if (dados.entrega_docs && dados.entrega_docs !== "") {
+                let statusDocs = dados.entrega_docs.toUpperCase();
+                let classeTagDocs = "tag-docs-pend";
+
+                if (statusDocs === "ENTREGUE") classeTagDocs = "tag-docs-entregue";
+                else if (statusDocs === "EM ANDAMENTO") classeTagDocs = "tag-docs-andamento";
+                else if (statusDocs === "PENDENTE") classeTagDocs = "tag-docs-pendente";
+
+                tagsHtml += `<span class="tag ${classeTagDocs}">DOCS: ${statusDocs}</span>`;
+            }
+
+            if (dados.resultado_exame && dados.resultado_exame !== "") {
+                let statusExame = dados.resultado_exame.toUpperCase();
+                let classeTagExame = "tag-exame-pend";
+
+                if (statusExame === "OK") classeTagExame = "tag-exame-ok";
+                else if (statusExame === "AGUARDANDO") classeTagExame = "tag-exame-aguardando";
+                else if (statusExame === "COM PENDENCIAS") classeTagExame = "tag-exame-pendencias";
+                else if (statusExame === "NÃO COMPARECEU") classeTagExame = "tag-exame-erro";
+                else if (statusExame === "NÃO SE APLICA") classeTagExame = "tag-exame-nao-aplica";
+
+                tagsHtml += `<span class="tag ${classeTagExame}">EXAME: ${statusExame}</span>`;
+            }
+
+            if (dados.trabalho_altura === "SIM") {
+                tagsHtml += `<span class="tag tag-altura">⚠️ ALTURA (NR-35)</span>`;
+            }
+
+            cardEl.innerHTML = `
+                <div class="card-title">${dados.obra} - ${respNome} ${dataFormatada}</div>
+                <div class="card-subtitle">${dados.funcao}</div>
+                <div class="card-desc" style="${isVagaLivre ? 'font-weight:bold; color:#B7950B;' : ''}">${nomeDisplay} - ${dados.contrato || 'PREVISTO'}</div>
+                <div class="card-tags">${tagsHtml}</div>
+            `;
+
+            const coluna = document.getElementById(dados.estado || '0. PROGRAMAÇÃO');
+            if(coluna) {
+                coluna.appendChild(cardEl);
+            }
+        }
+
+        function trocarAbaVagas(aba) {
+            document.getElementById('btn_tab_kanban').classList.toggle('active', aba === 'kanban');
+            document.getElementById('btn_tab_dash').classList.toggle('active', aba === 'dashboard');
+            
+            document.getElementById('visao_kanban').style.display = aba === 'kanban' ? 'block' : 'none';
+            document.getElementById('visao_dashboard').style.display = aba === 'dashboard' ? 'block' : 'none';
+
+            if (aba === 'dashboard') {
+                atualizarDashboardVagas();
+            }
+        }
+
+        function atualizarDashboardVagas() {
+            const visiveis = Object.values(bancoDeDados).filter(d => {
+                const el = document.getElementById(d.id);
+                return el && el.style.display !== 'none';
+            });
+
+            const total = visiveis.length;
+            const programadas = visiveis.filter(d => d.estado && d.estado.includes('0')).length;
+            const nr35Prog = visiveis.filter(d => d.estado && d.estado.includes('0') && d.trabalho_altura === 'SIM').length;
+            const concluidas = visiveis.filter(d => d.estado && d.estado.includes('4')).length;
+
+            document.getElementById('kpi_total_vagas').innerText = total;
+            document.getElementById('kpi_programadas').innerText = programadas;
+            document.getElementById('kpi_nr35_prog').innerText = nr35Prog;
+            document.getElementById('kpi_vagas_concluidas').innerText = concluidas;
+
+            const progByObra = {};
+            visiveis.filter(d => d.estado && d.estado.includes('0')).forEach(d => {
+                progByObra[d.obra] = (progByObra[d.obra] || 0) + 1;
+            });
+
+            if (chartProgObras) chartProgObras.destroy();
+            chartProgObras = new Chart(document.getElementById('chart_programacao_obras'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(progByObra).length ? Object.keys(progByObra) : ["Nenhuma Programação"],
+                    datasets: [{ label: 'Vagas Programadas', data: Object.keys(progByObra).length ? Object.values(progByObra) : [0], backgroundColor: '#2980B9' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const countEstados = { '0. PROGRAMAÇÃO': 0, '1. INICIAL': 0, '2. EM ANDAMENTO': 0, '3. PREVISTO': 0, '4. INICIARAM': 0, '5. DESISTENTE': 0 };
+            visiveis.forEach(d => {
+                if (d.estado && d.estado.includes('0')) countEstados['0. PROGRAMAÇÃO']++;
+                else if (d.estado && d.estado.includes('1')) countEstados['1. INICIAL']++;
+                else if (d.estado && d.estado.includes('2')) countEstados['2. EM ANDAMENTO']++;
+                else if (d.estado && d.estado.includes('3')) countEstados['3. PREVISTO']++;
+                else if (d.estado && d.estado.includes('4')) countEstados['4. INICIARAM']++;
+                else if (d.estado && d.estado.includes('5')) countEstados['5. DESISTENTE']++;
+            });
+
+            if (chartEstados) chartEstados.destroy();
+            chartEstados = new Chart(document.getElementById('chart_estados_vagas'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(countEstados),
+                    datasets: [{ data: Object.values(countEstados), backgroundColor: ['#57535D', '#f1c40f', '#0088cc', '#e67e22', '#27ae60', '#e74c3c'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const cargosProgramados = visiveis.filter(d => d.estado && d.estado.includes('0'));
+            const cargosMapNormal = {};
+            const cargosMapAltura = {};
+
+            cargosProgramados.forEach(d => {
+                const cargo = d.funcao || "SEM CARGO";
+                if (d.trabalho_altura === "SIM") {
+                    cargosMapAltura[cargo] = (cargosMapAltura[cargo] || 0) + 1;
+                    if (!cargosMapNormal[cargo]) cargosMapNormal[cargo] = 0;
+                } else {
+                    cargosMapNormal[cargo] = (cargosMapNormal[cargo] || 0) + 1;
+                    if (!cargosMapAltura[cargo]) cargosMapAltura[cargo] = 0;
+                }
+            });
+
+            const labelsCargos = Array.from(new Set([...Object.keys(cargosMapNormal), ...Object.keys(cargosMapAltura)]));
+
+            if (chartCargosProg) chartCargosProg.destroy();
+            chartCargosProg = new Chart(document.getElementById('chart_cargos_programados'), {
+                type: 'bar',
+                data: {
+                    labels: labelsCargos.length ? labelsCargos : ["Nenhum Cargo em Programação"],
+                    datasets: [
+                        {
+                            label: 'Vaga Normal (Sem Altura)',
+                            data: labelsCargos.length ? labelsCargos.map(c => cargosMapNormal[c] || 0) : [0],
+                            backgroundColor: '#0088cc'
+                        },
+                        {
+                            label: 'Trabalho em Altura (NR-35)',
+                            data: labelsCargos.length ? labelsCargos.map(c => cargosMapAltura[c] || 0) : [0],
+                            backgroundColor: '#e67e22'
+                        }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true, ticks: { stepSize: 1 } },
+                        y: { stacked: true }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw} vaga(s)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function handleEstadoChangeInModal() {
+            const estado = document.getElementById('estado').value;
+            const isProgramacao = (estado === '0. PROGRAMAÇÃO');
+            const lblNome = document.getElementById('label_nome_candidato');
+            const inputNome = document.getElementById('nome_candidato');
+            const inputContato = document.getElementById('contato');
+
+            if (isProgramacao) {
+                lblNome.className = ""; inputNome.required = false; inputContato.required = false;
+            } else {
+                lblNome.className = "required"; inputNome.required = true; inputContato.required = true;
+                if (!document.getElementById('solicitacao').value) {
+                    document.getElementById('solicitacao').value = new Date().toISOString().split('T')[0];
+                }
+            }
+        }
+
+        function toggleSidebarMenu() {
+            const sidebar = document.getElementById('sidebar_menu');
+            const btn = document.getElementById('btn_toggle_sidebar');
+            sidebar.classList.toggle('collapsed');
+            if (sidebar.classList.contains('collapsed')) {
+                btn.innerText = '❯'; btn.title = "Expandir Filtros";
+            } else {
+                btn.innerText = '❮'; btn.title = "Minimizar Filtros";
+            }
+        }
+
+        function retornoSalvamentoJSONP(res) {
+            const btnSalvar = document.querySelector('button[type="submit"]');
+            if (btnSalvar) {
+                btnSalvar.innerText = "Salvar e Fechar";
+                btnSalvar.disabled = false;
+            }
+            if (res && res.sucesso === false) {
+                alert(res.mensagem || "Erro ao salvar.");
+                return;
+            }
+            fecharModal();
+            carregarDados();
+        }
+
+        function salvarDados(event) {
+            event.preventDefault(); 
+            
+            const estadoVal = document.getElementById('estado').value;
+            const atividadesSelecionadas = Array.from(document.querySelectorAll('#atividades_list input[type="checkbox"]:checked')).map(cb => cb.value);
+            
+            if(atividadesSelecionadas.length === 0) {
+                alert("Por favor, selecione pelo menos uma Atividade.");
+                return;
+            }
+
+            const btnSalvar = document.querySelector('button[type="submit"]');
+            btnSalvar.innerText = "Salvando...";
+            btnSalvar.disabled = true;
+
+            const id = document.getElementById('card_id_edit').value || 'card_' + Date.now();
+            const estadoAnterior = bancoDeDados[id] ? bancoDeDados[id].estado : "";
+
+            let funcFinal = document.getElementById('funcao').value;
+            if(funcFinal === 'OUTRO') funcFinal = document.getElementById('funcao_outra').value;
+
+            let respFinal = document.getElementById('resp_solicitacao').value;
+            if(respFinal === 'OUTRO') respFinal = document.getElementById('resp_solicitacao_outro').value;
+
+            let obraFinal = document.getElementById('obra').value;
+            if(obraFinal === 'OUTRO') obraFinal = document.getElementById('obra_outra').value;
+
+            let dataSolicitacao = document.getElementById('solicitacao').value;
+            if (estadoVal !== '0. PROGRAMAÇÃO' && !dataSolicitacao) {
+                dataSolicitacao = new Date().toISOString().split('T')[0];
+            }
+
+            let nomeCand = document.getElementById('nome_candidato').value.trim();
+            if(!nomeCand) nomeCand = "VAGA LIVRE";
+
+            let historicoExistente = document.getElementById('notas_historico_visual').value.trim();
+            let novaObservacao = document.getElementById('notas_nova_observacao').value.trim();
+            let notasFinal = historicoExistente;
+
+            if (novaObservacao !== "") {
+                const agora = new Date();
+                const dia = String(agora.getDate()).padStart(2, '0');
+                const mes = String(agora.getMonth() + 1).padStart(2, '0');
+                const ano = String(agora.getFullYear()).slice(-2);
+                const hora = String(agora.getHours()).padStart(2, '0');
+                const min = String(agora.getMinutes()).padStart(2, '0');
+                
+                const carimbo = `${dia}-${mes}-${ano} ${hora}:${min} - `;
+                const entradaFormatada = `${carimbo}${novaObservacao}`;
+
+                if (historicoExistente !== "") {
+                    notasFinal = `${entradaFormatada}\n${historicoExistente}`;
+                } else {
+                    notasFinal = entradaFormatada;
+                }
+            }
+
+            if (estadoVal.includes('4') && estadoAnterior !== estadoVal) {
+                dispararCelebracao();
+            }
+
+            const queryParams = new URLSearchParams();
+            queryParams.append('callback', 'retornoSalvamentoJSONP');
+            queryParams.append('acao', 'salvar');
+            queryParams.append('id', id);
+            queryParams.append('solicitacao', dataSolicitacao || "");
+            queryParams.append('nome_candidato', nomeCand);
+            queryParams.append('necessidade', document.getElementById('necessidade').value || "");
+            queryParams.append('estado', estadoVal || "0. PROGRAMAÇÃO");
+            queryParams.append('resp_solicitacao', respFinal || "");
+            queryParams.append('obra', obraFinal || 'SEM OBRA');
+            queryParams.append('funcao', funcFinal || 'SEM FUNÇÃO');
+            queryParams.append('servico', document.getElementById('servico_hidden').value || "");
+            queryParams.append('atividades', atividadesSelecionadas.join(', '));
+            queryParams.append('prazo', document.getElementById('prazo').value || "");
+            queryParams.append('contrato', document.getElementById('contrato').value || 'SEM CONTRATO');
+            queryParams.append('trabalho_altura', document.getElementById('trabalho_altura').value || "");
+            queryParams.append('fardamento', document.getElementById('fardamento').value || "");
+            queryParams.append('calcado', document.getElementById('calcado').value || "");
+            queryParams.append('contato', document.getElementById('contato').value || "");
+            queryParams.append('contactado', document.getElementById('contactado').value || "");
+            queryParams.append('fazer_exame', document.getElementById('fazer_exame').value || "");
+            queryParams.append('entrega_docs', document.getElementById('entrega_docs').value || "");
+            queryParams.append('resultado_exame', document.getElementById('resultado_exame').value || "");
+            queryParams.append('notas', notasFinal);
+
+            bancoDeDados[id] = {
+                id, solicitacao: dataSolicitacao, nome_candidato: nomeCand, necessidade: document.getElementById('necessidade').value,
+                estado: estadoVal, resp_solicitacao: respFinal, obra: obraFinal, funcao: funcFinal,
+                servico: document.getElementById('servico_hidden').value, atividades: atividadesSelecionadas.join(', '), prazo: document.getElementById('prazo').value,
+                contrato: document.getElementById('contrato').value, trabalho_altura: document.getElementById('trabalho_altura').value,
+                fardamento: document.getElementById('fardamento').value, calcado: document.getElementById('calcado').value,
+                contato: document.getElementById('contato').value, contactado: document.getElementById('contactado').value,
+                fazer_exame: document.getElementById('fazer_exame').value, entrega_docs: document.getElementById('entrega_docs').value,
+                resultado_exame: document.getElementById('resultado_exame').value, notas: notasFinal
+            };
+
+            renderizarCartao(bancoDeDados[id]);
+            atualizarContadores();
+            fecharModal();
+
+            const script = document.createElement('script');
+            script.src = urlAppScript + '?' + queryParams.toString() + '&t=' + new Date().getTime();
+            document.body.appendChild(script);
+        }
+
+        function soltar(ev) {
+            ev.preventDefault();
+            if (draggedCard && ev.currentTarget.classList.contains('cards-container')) {
+                const cardId = draggedCard.id;
+                const novoEstado = ev.currentTarget.id;
+                const estadoAnterior = bancoDeDados[cardId] ? bancoDeDados[cardId].estado : "";
+
+                ev.currentTarget.appendChild(draggedCard);
+                draggedCard.classList.remove('dragging');
+                
+                if(bancoDeDados[cardId] && bancoDeDados[cardId].estado !== novoEstado) {
+                    bancoDeDados[cardId].estado = novoEstado;
+
+                    if (novoEstado !== '0. PROGRAMAÇÃO' && !bancoDeDados[cardId].solicitacao) {
+                        bancoDeDados[cardId].solicitacao = new Date().toISOString().split('T')[0];
+                    }
+
+                    if (novoEstado.includes('4') && estadoAnterior !== novoEstado) {
+                        dispararCelebracao();
+                    }
+
+                    let corBorda = '#57535D'; 
+                    if(novoEstado.includes('1')) corBorda = '#f1c40f'; 
+                    if(novoEstado.includes('2')) corBorda = '#0088cc'; 
+                    if(novoEstado.includes('3')) corBorda = '#e67e22'; 
+                    if(novoEstado.includes('4')) corBorda = '#27ae60'; 
+                    if(novoEstado.includes('5')) corBorda = '#e74c3c'; 
+                    draggedCard.style.borderLeftColor = corBorda;
+
+                    atualizarContadores();
+                    
+                    const dadosParaSalvar = {...bancoDeDados[cardId]};
+                    const queryParams = new URLSearchParams();
+                    queryParams.append('callback', 'retornoSalvamentoJSONP');
+                    queryParams.append('acao', 'salvar');
+                    queryParams.append('id', cardId);
+                    queryParams.append('estado', novoEstado);
+                    queryParams.append('solicitacao', dadosParaSalvar.solicitacao || "");
+                    queryParams.append('nome_candidato', dadosParaSalvar.nome_candidato || "VAGA LIVRE");
+                    queryParams.append('necessidade', dadosParaSalvar.necessidade || "");
+                    queryParams.append('resp_solicitacao', dadosParaSalvar.resp_solicitacao || "");
+                    queryParams.append('obra', dadosParaSalvar.obra || "");
+                    queryParams.append('funcao', dadosParaSalvar.funcao || "");
+                    queryParams.append('servico', dadosParaSalvar.servico || "");
+                    queryParams.append('atividades', Array.isArray(dadosParaSalvar.atividades) ? dadosParaSalvar.atividades.join(', ') : (dadosParaSalvar.atividades || ""));
+                    queryParams.append('prazo', dadosParaSalvar.prazo || "");
+                    queryParams.append('contrato', dadosParaSalvar.contrato || "");
+                    queryParams.append('trabalho_altura', dadosParaSalvar.trabalho_altura || "");
+                    queryParams.append('fardamento', dadosParaSalvar.fardamento || "");
+                    queryParams.append('calcado', dadosParaSalvar.calcado || "");
+                    queryParams.append('contato', dadosParaSalvar.contato || "");
+                    queryParams.append('contactado', dadosParaSalvar.contactado || "");
+                    queryParams.append('fazer_exame', dadosParaSalvar.fazer_exame || "");
+                    queryParams.append('entrega_docs', dadosParaSalvar.entrega_docs || "");
+                    queryParams.append('resultado_exame', dadosParaSalvar.resultado_exame || "");
+                    queryParams.append('notas', dadosParaSalvar.notas || "");
+
+                    const script = document.createElement('script');
+                    script.src = urlAppScript + '?' + queryParams.toString() + '&t=' + new Date().getTime();
+                    document.body.appendChild(script);
+                }
+            }
+        }
+
+        function atualizarContadores() {
+            const colunas = [
+                {id: '0. PROGRAMAÇÃO', countId: 'count_0. PROGRAMAÇÃO'},
+                {id: '1. INICIAL', countId: 'count_1. INICIAL'},
+                {id: '2. EM ANDAMENTO', countId: 'count_2. EM ANDAMENTO'},
+                {id: '3. PREVISTO A INICIAR', countId: 'count_3. PREVISTO A INICIAR'},
+                {id: '4. INICIARAM ATIVIDADES', countId: 'count_4. INICIARAM ATIVIDADES'},
+                {id: '5. DESISTENTE', countId: 'count_5. DESISTENTE'}
+            ];
+
+            colunas.forEach(col => {
+                const container = document.getElementById(col.id);
+                if (container) {
+                    const cards = container.querySelectorAll('.card');
+                    let visiveis = 0;
+                    cards.forEach(c => {
+                        if(c.style.display !== 'none') visiveis++;
+                    });
+                    
+                    const countSpan = document.getElementById(col.countId);
+                    if(countSpan) {
+                        countSpan.innerText = visiveis + (col.id === '0. PROGRAMAÇÃO' ? (visiveis === 1 ? ' VAGA' : ' VAGAS') : (visiveis === 1 ? ' CONTRATAÇÃO' : ' CONTRATAÇÕES'));
+                    }
+                }
+            });
+        }
+
+        function atualizarFiltroAno() {
+            const containerAno = document.getElementById('filtro_ano');
+            const selecionados = Array.from(containerAno.querySelectorAll('input:checked')).map(cb => cb.value);
+            
+            const anos = new Set();
+            Object.values(bancoDeDados).forEach(dados => {
+                if(dados.solicitacao) {
+                    const ano = dados.solicitacao.split('-')[0];
+                    if (ano.length === 4) anos.add(ano);
+                }
+            });
+
+            if(anos.size === 0) {
+                anos.add(new Date().getFullYear().toString());
+            }
+
+            const anosArray = Array.from(anos).sort((a,b) => b - a);
+            
+            containerAno.innerHTML = '';
+            anosArray.forEach(ano => {
+                const label = document.createElement('label');
+                const isChecked = selecionados.includes(ano) ? 'checked' : '';
+                label.innerHTML = `<input type="checkbox" value="${ano}" onchange="aplicarFiltros()" ${isChecked}> ${ano}`;
+                containerAno.appendChild(label);
+            });
+        }
+
+        function toggleColuna(id) {
+            const col = document.getElementById(id);
+            col.classList.toggle('collapsed');
+            const container = col.querySelector('.cards-container');
+            const btn = col.querySelector('.btn-expand');
+            if (col.classList.contains('collapsed')) {
+                container.style.display = 'none';
+                btn.innerText = '⇦';
+            } else {
+                container.style.display = 'block';
+                btn.innerText = '⇨';
+            }
+        }
+
+        function verificarOutros(selectId, inputId) {
+            var select = document.getElementById(selectId);
+            var input = document.getElementById(inputId);
+            if(select.value === 'OUTRO') {
+                input.style.display = 'block';
+                input.required = true;
+                input.focus();
+            } else {
+                input.style.display = 'none';
+                input.required = false;
+                input.value = '';
+            }
+        }
+
+        function verificarWhatsApp() {
+            const btn = document.getElementById('btn_wa');
+            const inputVal = document.getElementById('contato').value.replace(/\D/g, '');
+            if (inputVal.length >= 10) {
+                btn.style.display = 'flex';
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+
+        function abrirWhatsApp() {
+            const numOriginal = document.getElementById('contato').value;
+            const apenasNumeros = numOriginal.replace(/\D/g, '');
+            
+            let nome = document.getElementById('nome_candidato').value.trim() || 'Candidato(a)';
+            let obra = document.getElementById('obra').value || 'Mirantes';
+
+            let primeiroNome = nome.split(' ')[0].toUpperCase();
+
+            let mensagemArray = [
+                'Olá, *' + primeiroNome + '*, tudo bem?', '',
+                'Falo do *Departamento Pessoal da Mirantes Empreendimentos.*',
+                'Você estará vinculado(a) à *obra: ' + obra + '*.', '',
+                'Estou enviando o checklist de documentos para envio das documentações:', '',
+                '*CHECKLIST DE DOCUMENTOS:*',
+                '• Carteira de trabalho (Física ou digital)',
+                '• Número do PIS (Extrato PIS Ativo - Caixa Econômica)',
+                '• Doc. do RG e CPF', '• Doc. do Título de Eleitor',
+                '• Comprovante de Residência', '• Certidão de Nascimento ou Casamento',
+                '• Certidão de nascimento dos filhos menores de 14 anos',
+                '• CPF dos filhos, Decl. escolar ou Cartão de Vacina (Menores de 7)',
+                '• Comprovante de escolaridade', '• 01 Foto 3x4 (WEB)', '• Cartão do SUS',
+                '• Dados Bancários (Conta Corrente - Menos Mercado Pago, PagSeguro e PicPay)',
+                '• Endereço de E-mail', '',
+                '*Atenção:* Se possível, pedimos o *envio de todos os documentos de uma só vez*, pois isso agiliza bastante o processo de admissão.',
+                'Caso não consiga enviar tudo agora, RG e CPF já nos permitem iniciar o processo e agendar o exame admissional (ASO).', '',
+                '*Forma de envio:*',
+                'Todos os documentos devem ser enviados digitalmente (foto legível ou PDF) por este WhatsApp, que é nosso canal oficial de contato.', '',
+                'Fico à disposição para qualquer dúvida. Obrigado(a)!'
+            ];
+
+            const textoMensagem = mensagemArray.join('\n');
+
+            if(apenasNumeros) {
+                const urlWa = 'https://api.whatsapp.com/send?phone=55' + apenasNumeros + '&text=' + encodeURIComponent(textoMensagem);
+                window.open(urlWa, '_blank');
+            }
+        }
+
+        function filtrarDropdownList(inputId, listId) {
+            const input = document.getElementById(inputId);
+            const filter = input.value.toUpperCase();
+            const list = document.getElementById(listId);
+            let items;
+            
+            if (listId === 'atividades_list') {
+                items = list.getElementsByTagName('label');
+                for (let i = 0; i < items.length; i++) {
+                    let txtValue = items[i].textContent || items[i].innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        items[i].style.display = "";
+                    } else {
+                        items[i].style.display = "none";
+                    }
+                }
+            } else {
+                items = list.getElementsByClassName('select-item');
+                for (let i = 0; i < items.length; i++) {
+                    let txtValue = items[i].textContent || items[i].innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        items[i].style.display = "";
+                    } else {
+                        items[i].style.display = "none";
+                    }
+                }
+            }
+        }
+
+        function toggleAtividades() {
+            var list = document.getElementById("atividades_list");
+            list.style.display = (list.style.display === "block") ? "none" : "block";
+            if (list.style.display === "block") {
+                document.getElementById('search_atividade').focus();
+            }
+        }
+
+        function toggleServico() {
+            var list = document.getElementById("servico_list");
+            list.style.display = (list.style.display === "block") ? "none" : "block";
+            if (list.style.display === "block") {
+                document.getElementById('search_servico').focus();
+            }
+        }
+
+        function selecionarServico(valor) {
+            document.getElementById('servico_hidden').value = valor;
+            const header = document.getElementById('servico_header_text');
+            header.innerHTML = valor + ' <span style="float: right;">▼</span>';
+            header.title = valor;
+            document.getElementById("servico_list").style.display = "none";
+            
+            const items = document.querySelectorAll('#servico_list .select-item');
+            items.forEach(i => i.classList.remove('selected'));
+            const selectedItem = Array.from(items).find(i => i.innerText === valor);
+            if (selectedItem) selectedItem.classList.add('selected');
+        }
+
+        document.querySelectorAll('#atividades_list input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const checkboxes = document.querySelectorAll('#atividades_list input[type="checkbox"]:checked');
+                const header = document.getElementById('atividades_header_text');
+                
+                if (checkboxes.length === 0) {
+                    header.innerHTML = 'Selecione as atividades... <span style="float: right;">▼</span>';
+                    header.title = "";
+                } else {
+                    const selecionadas = Array.from(checkboxes).map(c => c.value).join(', ');
+                    header.innerHTML = selecionadas + ' <span style="float: right;">▼</span>';
+                    header.title = selecionadas;
+                }
+            });
+        });
+
+        window.onclick = function(event) {
+            if (!event.target.matches('.multiselect-header') && !event.target.closest('#atividades_list')) {
+                const list = document.getElementById('atividades_list');
+                if(list) list.style.display = "none";
+            }
+            if (!event.target.matches('.custom-select-header') && !event.target.closest('#servico_list')) {
+                const list2 = document.getElementById('servico_list');
+                if(list2) list2.style.display = "none";
+            }
+        }
+
+        function arrastar(ev) {
+            draggedCard = ev.target;
+            ev.dataTransfer.setData("text", ev.target.id);
+            setTimeout(() => ev.target.classList.add('dragging'), 0);
+        }
+
+        function permitirSoltar(ev) { ev.preventDefault(); }
+
+        function filtrarSidebarFuncoes() {
+            const termo = document.getElementById('search_funcao_sidebar').value.toLowerCase();
+            const labels = document.querySelectorAll('#filtro_funcao label');
+            labels.forEach(label => {
+                if(label.innerText.toLowerCase().includes(termo)) {
+                    label.style.display = 'flex';
+                } else {
+                    label.style.display = 'none';
+                }
+            });
+        }
+
+        function aplicarFiltros() {
+            const anosSelecionados = Array.from(document.querySelectorAll('#filtro_ano input:checked')).map(cb => cb.value);
+            const obrasSelecionadas = Array.from(document.querySelectorAll('#filtro_obra input:checked')).map(cb => cb.value.toLowerCase());
+            const estadosSelecionados = Array.from(document.querySelectorAll('#filtro_estado input:checked')).map(cb => cb.value.toLowerCase());
+            const funcoesSelecionadas = Array.from(document.querySelectorAll('#filtro_funcao input:checked')).map(cb => cb.value.toLowerCase());
+            
+            const buscaGeral = document.getElementById('input_busca_geral').value.toLowerCase().trim();
+
+            Object.keys(bancoDeDados).forEach(cardId => {
+                const cardElement = document.getElementById(cardId);
+                if(!cardElement) return;
+
+                const dados = bancoDeDados[cardId];
+                const anoCard = dados.solicitacao ? dados.solicitacao.split('-')[0] : "";
+                
+                const matchAno = anosSelecionados.length === 0 || anosSelecionados.includes(anoCard);
+                const matchObra = obrasSelecionadas.length === 0 || obrasSelecionadas.some(o => dados.obra.toLowerCase().includes(o));
+                const matchEstado = estadosSelecionados.length === 0 || estadosSelecionados.some(e => dados.estado.toLowerCase().includes(e));
+                const matchFuncao = funcoesSelecionadas.length === 0 || funcoesSelecionadas.some(f => dados.funcao.toLowerCase().includes(f));
+
+                const matchBuscaGeral = buscaGeral === "" || 
+                    (dados.nome_candidato && dados.nome_candidato.toLowerCase().includes(buscaGeral)) ||
+                    (dados.funcao && dados.funcao.toLowerCase().includes(buscaGeral)) ||
+                    (dados.obra && dados.obra.toLowerCase().includes(buscaGeral));
+
+                if (matchObra && matchEstado && matchFuncao && matchAno && matchBuscaGeral) {
+                    cardElement.style.display = "block";
+                } else {
+                    cardElement.style.display = "none";
+                }
+            });
+            
+            atualizarContadores();
+            if (document.getElementById('visao_dashboard').style.display === 'block') {
+                atualizarDashboardVagas();
+            }
+        }
+
+        function exportarPDF() {
+            const dataAtual = new Date().toLocaleDateString('pt-BR');
+            const horaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            let linhasTabela = "";
+            let totalVisivel = 0;
+            let totalAndamento = 0;
+            let totalIniciados = 0;
+
+            Object.values(bancoDeDados).forEach(dados => {
+                const el = document.getElementById(dados.id);
+                if (el && el.style.display !== "none") {
+                    totalVisivel++;
+                    if(dados.estado && dados.estado.includes('2')) totalAndamento++;
+                    if(dados.estado && dados.estado.includes('4')) totalIniciados++;
+
+                    let tagDocs = dados.entrega_docs || 'PENDENTE';
+                    let tagExame = dados.resultado_exame || 'AGUARDANDO';
+                    let tagAltura = dados.trabalho_altura === 'SIM' ? 'SIM (NR-35)' : 'NÃO';
+
+                    linhasTabela += `
+                        <tr>
+                            <td style="font-weight: bold; color: #0088cc;">${dados.obra}</td>
+                            <td><b>${dados.nome_candidato || 'VAGA LIVRE'}</b></td>
+                            <td>${dados.funcao}</td>
+                            <td><span class="badge-estado">${dados.estado}</span></td>
+                            <td>${tagDocs}</td>
+                            <td>${tagExame}</td>
+                            <td>${tagAltura}</td>
+                            <td>${dados.contato || '-'}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            if(linhasTabela === "") {
+                alert("Nenhuma vaga visível para gerar o relatório.");
+                return;
+            }
+
+            const htmlPDF = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Relatório de Contratações - Mirantes</title>
+                    <style>
+                        @page { size: A4 landscape; margin: 12mm; }
+                        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 0; margin: 0; color: #333; }
+                        .header-container { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #0088cc; padding-bottom: 12px; margin-bottom: 15px; }
+                        .logo-brand { max-height: 50px; }
+                        .report-title { text-align: right; }
+                        .report-title h1 { margin: 0; font-size: 18px; color: #0088cc; text-transform: uppercase; letter-spacing: 0.5px; }
+                        .report-title p { margin: 3px 0 0 0; font-size: 11px; color: #666; }
+                        .kpi-container { display: flex; gap: 15px; margin-bottom: 15px; }
+                        .kpi-card { background: #F6F8FA; border: 1px solid #E1E4E8; border-radius: 6px; padding: 8px 15px; flex: 1; }
+                        .kpi-card .num { font-size: 18px; font-weight: bold; color: #0088cc; }
+                        .kpi-card .label { font-size: 10px; color: #666; text-transform: uppercase; font-weight: 600; }
+                        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                        th { background-color: #0088cc; color: white; padding: 8px 10px; text-align: left; font-weight: bold; text-transform: uppercase; font-size: 10px; }
+                        td { border-bottom: 1px solid #E1E4E8; padding: 8px 10px; vertical-align: middle; }
+                        tr:nth-child(even) { background-color: #F8F9FA; }
+                        .badge-estado { font-size: 10px; font-weight: bold; color: #444; }
+                        .footer-print { margin-top: 20px; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #EEE; padding-top: 8px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header-container">
+                        <img src="https://i.postimg.cc/xjkGFktT/2015-02-25-logomarca-construtora-vertical.png" class="logo-brand" alt="Mirantes">
+                        <div class="report-title">
+                            <h1>Relatório de Contratações</h1>
+                            <p>Emissão: ${dataAtual} às ${horaAtual}</p>
+                        </div>
+                    </div>
+
+                    <div class="kpi-container">
+                        <div class="kpi-card">
+                            <div class="num">${totalVisivel}</div>
+                            <div class="label">Total de Vagas Exibidas</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="num">${totalAndamento}</div>
+                            <div class="label">Em Andamento</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="num">${totalIniciados}</div>
+                            <div class="label">Iniciaram Atividades</div>
+                        </div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 8%;">Obra</th>
+                                <th>Candidato</th>
+                                <th style="width: 18%;">Função / Cargo</th>
+                                <th style="width: 15%;">Estado Atual</th>
+                                <th style="width: 11%;">Docs</th>
+                                <th style="width: 11%;">Exame</th>
+                                <th style="width: 12%;">Alt. (NR-35)</th>
+                                <th style="width: 12%;">Contato</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${linhasTabela}
+                        </tbody>
+                    </table>
+
+                    <div class="footer-print">
+                        Mirantes Empreendimentos • Sistema de Gestão de Contratações
+                    </div>
+
+                    <script>
+                        window.onload = function() {
+                            setTimeout(function() {
+                                window.print();
+                            }, 300);
+                        }
+                    <\/script>
+                </body>
+                </html>
+            `;
+
+            const win = window.open('', '_blank');
+            win.document.write(htmlPDF);
+            win.document.close();
+        }
+
+        function abrirModal(cardId = null) {
+            document.getElementById('modalVaga').style.display = 'flex';
+            document.getElementById('formContratacao').reset();
+            
+            verificarOutros('funcao', 'funcao_outra');
+            verificarOutros('resp_solicitacao', 'resp_solicitacao_outro');
+            verificarOutros('obra', 'obra_outra');
+            verificarWhatsApp(); 
+            document.getElementById('atividades_header_text').innerHTML = 'Selecione as atividades... <span style="float: right;">▼</span>';
+            document.getElementById('servico_header_text').innerHTML = 'Selecione o Serviço... <span style="float: right;">▼</span>';
+            document.getElementById('servico_hidden').value = "";
+            document.getElementById('search_servico').value = "";
+            document.getElementById('search_atividade').value = "";
+            filtrarDropdownList('search_servico', 'servico_list');
+            filtrarDropdownList('search_atividade', 'atividades_list');
+
+            document.getElementById('card_id_edit').value = cardId || "";
+            document.getElementById('notas_nova_observacao').value = "";
+            document.getElementById('btn_duplicar').style.display = 'none';
+
+            const containerCriador = document.getElementById('container_criador');
+
+            if(cardId && bancoDeDados[cardId]) {
+                document.getElementById('modalTitle').innerText = "Editar Contratação";
+                document.getElementById('btn_duplicar').style.display = 'block'; 
+                const d = bancoDeDados[cardId];
+                
+                if (containerCriador) containerCriador.style.display = 'none';
+
+                document.getElementById('solicitacao').value = d.solicitacao ? d.solicitacao.split('T')[0] : "";
+                document.getElementById('nome_candidato').value = (d.nome_candidato === "VAGA LIVRE" || d.nome_candidato === "NOME NÃO INFORMADO") ? "" : (d.nome_candidato || "");
+                document.getElementById('necessidade').value = d.necessidade || "";
+                document.getElementById('estado').value = d.estado || "0. PROGRAMAÇÃO";
+                
+                const selectObra = document.getElementById('obra');
+                if (Array.from(selectObra.options).some(opt => opt.value === d.obra)) {
+                    selectObra.value = d.obra;
+                } else if (d.obra) {
+                    selectObra.value = 'OUTRO';
+                    document.getElementById('obra_outra').value = d.obra;
+                }
+                verificarOutros('obra', 'obra_outra');
+                
+                if (d.servico && d.servico !== "") {
+                    selecionarServico(d.servico);
+                }
+                
+                const selectFuncao = document.getElementById('funcao');
+                if (Array.from(selectFuncao.options).some(opt => opt.value === d.funcao)) {
+                    selectFuncao.value = d.funcao;
+                } else if (d.funcao) {
+                    selectFuncao.value = 'OUTRO';
+                    document.getElementById('funcao_outra').value = d.funcao;
+                }
+                verificarOutros('funcao', 'funcao_outra');
+
+                const selectResp = document.getElementById('resp_solicitacao');
+                if (Array.from(selectResp.options).some(opt => opt.value === d.resp_solicitacao)) {
+                    selectResp.value = d.resp_solicitacao;
+                } else if (d.resp_solicitacao) {
+                    selectResp.value = 'OUTRO';
+                    document.getElementById('resp_solicitacao_outro').value = d.resp_solicitacao;
+                }
+                verificarOutros('resp_solicitacao', 'resp_solicitacao_outro');
+
+                document.getElementById('prazo').value = d.prazo || "";
+                document.getElementById('contrato').value = d.contrato || "";
+                document.getElementById('trabalho_altura').value = d.trabalho_altura || "";
+                document.getElementById('fardamento').value = d.fardamento || "";
+                document.getElementById('calcado').value = d.calcado || "";
+                document.getElementById('contato').value = d.contato || "";
+                verificarWhatsApp(); 
+
+                document.getElementById('contactado').value = d.contactado || "";
+                document.getElementById('fazer_exame').value = d.fazer_exame ? d.fazer_exame.split('T')[0] : "";
+                document.getElementById('entrega_docs').value = d.entrega_docs || "";
+                document.getElementById('resultado_exame').value = d.resultado_exame || "";
+                
+                const valNotasHist = d.notas || "";
+                const containerHist = document.getElementById('container_historico_notas');
+                const campoVisualHist = document.getElementById('notas_historico_visual');
+
+                if (valNotasHist !== "") {
+                    containerHist.style.display = "flex";
+                    campoVisualHist.value = valNotasHist;
+                } else {
+                    containerHist.style.display = "none";
+                    campoVisualHist.value = "";
+                }
+
+                const checkboxes = document.querySelectorAll('#atividades_list input[type="checkbox"]');
+                checkboxes.forEach(cb => cb.checked = false); 
+                
+                let atividadesArray = d.atividades;
+                if (typeof atividadesArray === 'string') {
+                    atividadesArray = atividadesArray.split(',').map(s => s.trim());
+                }
+
+                if(atividadesArray && atividadesArray.length > 0) {
+                    atividadesArray.forEach(ativ => {
+                        const targetCb = document.querySelector(`#atividades_list input[value="${ativ}"]`);
+                        if(targetCb) targetCb.checked = true;
+                    });
+                    
+                    const header = document.getElementById('atividades_header_text');
+                    const nomesSelecionados = atividadesArray.join(', ');
+                    header.innerHTML = nomesSelecionados + ' <span style="float: right;">▼</span>';
+                    header.title = nomesSelecionados; 
+                }
+
+            } else {
+                document.getElementById('modalTitle').innerText = "+ Nova Contratação";
+                if (containerCriador) containerCriador.style.display = 'none';
+                document.getElementById('container_historico_notas').style.display = "none";
+                document.getElementById('notas_historico_visual').value = "";
+                document.getElementById('solicitacao').value = "";
+                document.getElementById('estado').value = "0. PROGRAMAÇÃO";
+            }
+
+            handleEstadoChangeInModal();
+        }
+
+        function duplicarVaga() {
+            document.getElementById('card_id_edit').value = "";
+            document.getElementById('nome_candidato').value = "";
+            document.getElementById('contato').value = "";
+            verificarWhatsApp(); 
+            
+            document.getElementById('contactado').value = "";
+            document.getElementById('fazer_exame').value = "";
+            document.getElementById('entrega_docs').value = "";
+            document.getElementById('resultado_exame').value = "";
+            document.getElementById('notas_nova_observacao').value = "";
+            document.getElementById('notas_historico_visual').value = "";
+            document.getElementById('container_historico_notas').style.display = "none";
+
+            document.getElementById('modalTitle').innerText = "+ Nova Contratação (Cópia)";
+            document.getElementById('btn_duplicar').style.display = 'none';
+            document.getElementById('nome_candidato').focus();
+        }
+
+        function fecharModal() {
+            document.getElementById('modalVaga').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
