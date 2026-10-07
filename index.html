@@ -1181,31 +1181,32 @@
         });
 
         function carregarDados() {
-            const statusEl = document.getElementById('loading_status_text');
-            if (statusEl) statusEl.innerText = "Buscando informações no servidor...";
-            
-            const scriptAntigo = document.getElementById('script_jsonp_loader');
-            if (scriptAntigo) scriptAntigo.remove();
+         const statusEl = document.getElementById('loading_status_text');
+    if (statusEl) statusEl.innerText = "Buscando informações no servidor...";
 
-            if (timerTimeoutCarregamento) clearTimeout(timerTimeoutCarregamento);
+    if (timerTimeoutCarregamento) clearTimeout(timerTimeoutCarregamento);
 
-            // Tempo de limite expandido para 35 segundos para suportar inicialização a frio do Apps Script
-            timerTimeoutCarregamento = setTimeout(function() {
-                exibirErroCarregamento();
-            }, 3000);
+    try {
+        const response = await fetch(urlAppScript);
+        if (!response.ok) throw new Error("Erro na requisição da API");
 
-            const script = document.createElement('script');
-            script.id = 'script_jsonp_loader';
-            script.src = `${urlAppScript}?callback=processarDadosPlanilha&t=${new Date().getTime()}`;
-            
-            // Reação imediata caso o navegador/rede bloqueie o carregamento do script
-            script.onerror = function() {
-                if (timerTimeoutCarregamento) clearTimeout(timerTimeoutCarregamento);
-                exibirErroCarregamento();
-            };
+        const dados = await response.json();
 
-            document.body.appendChild(script);
+        // Processa os dados retornados pela API Supabase/Python
+        if (typeof processarDadosPlanilha === "function") {
+            processarDadosPlanilha(dados);
         }
+
+        // Remove a tela de carregamento do logo
+        const telaCarregamento = document.getElementById("tela_carregamento");
+        if (telaCarregamento) telaCarregamento.style.display = "none";
+
+    } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+        if (typeof exibirErroCarregamento === "function") {
+            exhibirErroCarregamento();
+        }
+    }
 
         function processarDadosPlanilha(data) {
             if (timerTimeoutCarregamento) clearTimeout(timerTimeoutCarregamento);
