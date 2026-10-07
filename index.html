@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Vagas Mirantes</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --bg-body: #F6F5F7;
@@ -1193,7 +1192,7 @@
             // Tempo de limite expandido para 35 segundos para suportar inicialização a frio do Apps Script
             timerTimeoutCarregamento = setTimeout(function() {
                 exibirErroCarregamento();
-            }, 35000);
+            }, 3000);
 
             const script = document.createElement('script');
             script.id = 'script_jsonp_loader';
